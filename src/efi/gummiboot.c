@@ -27,10 +27,12 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <multiboot2_util.h>
 
 #include "util.h"
 #include "console.h"
 #include "graphics.h"
+
 
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
@@ -60,6 +62,7 @@ typedef struct {
         EFI_HANDLE *device;
         enum loader_type type;
         CHAR16 *loader;
+        CHAR16 *multiboot2;
         CHAR16 *options;
         CHAR16 *splash;
         CHAR16 key;
@@ -1129,6 +1132,11 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
                         continue;
                 }
 
+                if (strcmpa((CHAR8 *)"multiboot2", key) == 0) {
+                        FreePool(entry->multiboot2);
+                        entry->multiboot2 = stra_to_path(value);
+                        continue;
+                }
                 if (strcmpa((CHAR8 *)"linux", key) == 0) {
                         FreePool(entry->loader);
                         entry->type = LOADER_LINUX;
@@ -1633,16 +1641,43 @@ static VOID config_entry_add_osx(Config *config) {
 }
 
 static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, const ConfigEntry *entry) {
+
         EFI_STATUS err;
         EFI_HANDLE image;
         EFI_DEVICE_PATH *path;
         CHAR16 *options;
+        CHAR8 *os_buf = NULL ;
+        void *elf_entry ;
 
         path = FileDevicePath(entry->device, entry->loader);
         if (!path) {
-                Print(L"Error getting device path.");
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return EFI_INVALID_PARAMETER;
+          Print(L"Error getting device path.");
+          uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+          return EFI_INVALID_PARAMETER;
+        }
+
+        if(entry->multiboot2){
+          err = copy_file_buf(parent_image, entry->multiboot2, &os_buf, 0) ;
+          if (EFI_ERROR(err))
+            goto out;
+
+          /* parse multiboot2 header */
+          err = parse_header(os_buf,MULTIBOOT_SEARCH) ;
+
+          /* load as elf binary */
+          if(err == EFI_LOAD_ELF){
+            err = load_elf(os_buf, &elf_entry) ;
+            if (EFI_ERROR(err))
+              goto out;
+          }else if (EFI_ERROR(err))
+            goto out;
+
+          err = populate_mbi2() ;
+          if (EFI_ERROR(err))
+            goto out;
+
+          start_elf(elf_entry);
+          /* we should never reach this point */
         }
 
         err = uefi_call_wrapper(BS->LoadImage, 6, FALSE, parent_image, path, NULL, 0, &image);
