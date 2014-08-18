@@ -1647,6 +1647,7 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
         EFI_DEVICE_PATH *path;
         CHAR16 *options;
         CHAR8 *mboot2_header_buf = NULL ;
+        CHAR8 *os_buf = NULL ;
         UINTN len = MULTIBOOT_SEARCH;
 
         path = FileDevicePath(entry->device, entry->loader);
@@ -1657,11 +1658,13 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
         }
 
         if(entry->multiboot2){
-        	err = copy_header_buf(parent_image, entry->multiboot2, &mboot2_header_buf, &len) ;
+        	err = copy_file_buf(parent_image, entry->multiboot2, &mboot2_header_buf, &len) ;
         	if (EFI_ERROR(err))
         		goto out;
 
         	err = parse_header(mboot2_header_buf,len) ;
+        	if (EFI_ERROR(err))
+        		goto out;
         }
 
         err = uefi_call_wrapper(BS->LoadImage, 6, FALSE, parent_image, path, NULL, 0, &image);

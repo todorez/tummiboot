@@ -35,7 +35,7 @@ typedef mboot_hdr_tag_con_flags_t* mboot_hdr_tag_con_flags_p ;
 typedef struct multiboot_header_tag_framebuffer mboot_hdr_tag_fbuf_t ;
 typedef mboot_hdr_tag_fbuf_t* mboot_hdr_tag_fbuf_p ;
 
-EFI_STATUS copy_header_buf(EFI_HANDLE parent_image, CHAR16 *mboot_file, CHAR8 **buf, UINTN *mboot_len) ;
+EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *mboot_file, CHAR8 **buf, UINTN *mboot_len) ;
 EFI_STATUS parse_header(CHAR8 *buf, UINTN len) ;
 
 
