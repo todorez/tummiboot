@@ -1,12 +1,12 @@
-#include <efi.h>
-#include <efilib.h>
 #include "multiboot2_util.h"
 
-EFI_STATUS copy_header_buf(EFI_HANDLE parent_image, CHAR16 *mboot_file, CHAR8 **buf, UINTN *mboot_len ){
+EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UINTN *buf_len ){
     EFI_STATUS err;
 	EFI_LOADED_IMAGE *loaded_image;
 	EFI_FILE_HANDLE root_dir ;
-    EFI_FILE_HANDLE mboot_handle;
+    EFI_FILE_HANDLE file_handle;
+    UINTN tmp_sz ;
+    EFI_FILE_INFO tmp_buf;
 
 	err = uefi_call_wrapper(BS->OpenProtocol, 6, parent_image, &LoadedImageProtocol, (void **)&loaded_image,
 			parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -24,30 +24,49 @@ EFI_STATUS copy_header_buf(EFI_HANDLE parent_image, CHAR16 *mboot_file, CHAR8 **
         return EFI_LOAD_ERROR;
 	}
 
-	err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &mboot_handle, mboot_file, EFI_FILE_MODE_READ, 0ULL);
+	err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &file_handle, file, EFI_FILE_MODE_READ, 0ULL);
 	if (EFI_ERROR(err)){
-		Print(L"Unable to open multiboot2 file: %r ", err);
+		Print(L"Unable to open file: %r ", err);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return err;
 	}
 
-	*buf = AllocatePool(MULTIBOOT_SEARCH);
-	err = uefi_call_wrapper(mboot_handle->Read, 3, mboot_handle, mboot_len, *buf);
-	if (EFI_ERROR(err) || *mboot_len < 32) {
-		Print(L"Unable to read multiboot2 file: erro : %r bytes read : %d\n", err, *mboot_len);
-		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-		return EFI_LOAD_ERROR;
-	} else{
-		Print(L"Read multiboot2 file : %s bytes read : %d\n", mboot_file, *mboot_len);
-		uefi_call_wrapper(BS->Stall, 1, 10 * 1000 * 1000);
+	/*read the whole file*/
+	if(*buf_len == 0){
+
+		tmp_sz = SIZE_OF_EFI_FILE_INFO + (StrLen(file) * sizeof(CHAR16));
+		err  = uefi_call_wrapper(file_handle->GetInfo, 4, file_handle, &GenericFileInfo, &tmp_sz , &tmp_buf);
+
+		if (EFI_ERROR(err)){
+			Print(L"Unable to get file size: err : %d\n", err);
+			uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+			uefi_call_wrapper(file_handle->Close, 1, file_handle);
+			return EFI_LOAD_ERROR;
+		}
+
+		*buf_len = tmp_buf.FileSize ;
 	}
 
-	uefi_call_wrapper(mboot_handle->Close, 1, mboot_handle);
+	*buf = AllocateZeroPool(*buf_len);
+	err = uefi_call_wrapper(file_handle->Read, 3, file_handle, buf_len, *buf);
+
+
+	if (EFI_ERROR(err) || *buf_len < 32) {
+		Print(L"Unable to read file: erro : %r bytes read : %d\n", err, *buf_len);
+		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+		uefi_call_wrapper(file_handle->Close, 1, file_handle);
+		return EFI_LOAD_ERROR;
+	} else{
+		Print(L"Read file : %s bytes read : %d\n", file, *buf_len);
+		uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
+	}
+
+	uefi_call_wrapper(file_handle->Close, 1, file_handle);
 	return EFI_SUCCESS;
 }
 
 EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
-	bool has_entry__addr_tag = false ;
+	bool has_entry_addr_tag = false ;
 	bool console_required = false;
 	bool keep_bs = false;
 
@@ -64,21 +83,21 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 	for(hdr = (mboot_hdr_p)buf; ((char *) hdr <= (char *) buf + len - 16) || (hdr = 0);
 			hdr = (mboot_hdr_p) ((uint32_t *) hdr + 2)){
 
-			//TODO - remove debug messages
-			if (hdr->magic == MULTIBOOT2_HEADER_MAGIC){
-				uefi_call_wrapper(BS->Stall, 1, 5 * 1000 * 1000);
-				Print(L"Found multiboot2 header!\n");
-				if(!(hdr->magic + hdr->architecture
-					+ hdr->header_length + hdr->checksum)){
-					Print(L"Validated architecture!\n");
-					uefi_call_wrapper(BS->Stall, 1, 5 * 1000 * 1000);
+		//TODO - remove debug messages
+		if (hdr->magic == MULTIBOOT2_HEADER_MAGIC){
+			Print(L"Found multiboot2 header!\n");
+			uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
+			if(!(hdr->magic + hdr->architecture+ hdr->header_length + hdr->checksum)){
+				Print(L"Validated architecture!\n");
+				uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
 
-					if(hdr->architecture == MULTIBOOT_ARCHITECTURE_I386)
-						Print(L"Validated multiboot2 checksum!\n");
-					uefi_call_wrapper(BS->Stall, 1, 5 * 1000 * 1000);
-					break ;
-				}
+				if(hdr->architecture == MULTIBOOT_ARCHITECTURE_I386)
+					Print(L"Validated multiboot2 checksum!\n");
+
+				uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
+				break ;
 			}
+		}
 	}
 
 	//multiboot2 header not found or invalid checksum or arch
@@ -94,14 +113,12 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 			case MULTIBOOT_HEADER_TAG_INFORMATION_REQUEST:
 			{
 				unsigned short int i;
-				mboot_hdr_tag_info_req_p req_tag
-					= (mboot_hdr_tag_info_req_p) tag;
+				mboot_hdr_tag_info_req_p req_tag = (mboot_hdr_tag_info_req_p) tag;
 
 				if (req_tag->flags & MULTIBOOT_HEADER_TAG_OPTIONAL)
 					break;
 
-				for (i = 0; i < (req_tag->size - sizeof (req_tag))
-						/ sizeof (req_tag->requests[0]); i++)
+				for (i = 0; i < (req_tag->size - sizeof (req_tag)) / sizeof (req_tag->requests[0]); i++)
 
 				switch (req_tag->requests[i])
 				{
@@ -139,7 +156,7 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 				break;
 
 			case MULTIBOOT_HEADER_TAG_ENTRY_ADDRESS:
-				has_entry__addr_tag = true ;
+				has_entry_addr_tag = true ;
 				entry_addr_tag = ((mboot_hdr_tag_entry_addr_p) tag)->entry_addr;
 				break;
 
@@ -173,7 +190,23 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 		        }
 		        break ;
 		}
-		return EFI_SUCCESS;
 	}
+
+	if (addr_tag && !has_entry_addr_tag){
+		Print(L"ERROR: OS entry address not found!\n");
+		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+		return EFI_LOAD_ERROR;
+	}
+
+	if (addr_tag){
+		Print(L"TODO - parse address tag. Feature not implemented yet.\n");
+		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+	}else{
+		Print(L"TODO - Begin loading ELF file. Under development\n");
+		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+		//launch as elf binary then - tboot (*cough*)
+	}
+	return EFI_SUCCESS;
+
 }
 
