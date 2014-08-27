@@ -74,7 +74,7 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 	mboot_hdr_p hdr ;
 	mboot_hdr_tag_p tag;
 	mboot_hdr_tag_addr_p addr_tag = NULL;
-	mboot_hdr_tag_entry_addr_p entry_addr_tag = NULL;
+	uint32_t entry_addr_tag = NULL;
 	mboot_hdr_tag_fbuf_p fbtag = NULL;
 
 	int supported_consoles = MULTIBOOT_OS_CONSOLE_EGA_TEXT;
@@ -152,7 +152,7 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 			}
 
 			case MULTIBOOT_HEADER_TAG_ADDRESS:
-				addr_tag = (mboot_hdr_tag_p) tag;
+				addr_tag = (mboot_hdr_tag_addr_p) tag;
 				break;
 
 			case MULTIBOOT_HEADER_TAG_ENTRY_ADDRESS:

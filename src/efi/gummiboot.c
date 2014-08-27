@@ -31,7 +31,7 @@
 #include "util.h"
 #include "console.h"
 #include "graphics.h"
-#include "../multiboot2/multiboot2_util.h"
+#include "multiboot2_util.h"
 
 
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
