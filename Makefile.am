@@ -40,12 +40,13 @@ bin_PROGRAMS = gummiboot
 gummiboot_SOURCES = \
 	src/setup/setup.c \
 	src/setup/efivars.c \
-	src/setup/efivars.h
+	src/setup/efivars.h 
 
 gummiboot_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DMACHINE_TYPE_NAME=\"$(MACHINE_TYPE_NAME)\" \
-	-DGUMMIBOOTLIBDIR=\"$(gummibootlibdir)\"
+	-DGUMMIBOOTLIBDIR=\"$(gummibootlibdir)\"	
+
 
 gummiboot_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -79,19 +80,27 @@ efi_sources = \
 	src/efi/util.c \
 	src/efi/console.c \
 	src/efi/graphics.c \
-	src/efi/gummiboot.c
+	src/efi/gummiboot.c \
+	src/multiboot2/multiboot2.c	\
+	src/elf/elf.c	\
+	src/elf/memcpy.c	
 
 efi_headers = \
 	src/efi/util.h \
 	src/efi/console.h \
-	src/efi/graphics.h
+	src/efi/graphics.h \
+	src/multiboot2/multiboot2.h	\
+	src/multiboot2/multiboot2_util.h	\
+	src/elf/elf.h	
 
 efi_cppflags = \
 	$(EFI_CPPFLAGS) \
 	-I$(top_builddir) -include config.h \
 	-I$(EFI_INC_DIR)/efi \
 	-I$(EFI_INC_DIR)/efi/$(ARCH) \
-	-DMACHINE_TYPE_NAME=\"$(MACHINE_TYPE_NAME)\"
+	-DMACHINE_TYPE_NAME=\"$(MACHINE_TYPE_NAME)\" \
+	-I$(top_builddir)/src/multiboot2 \
+	-I$(top_builddir)/src/elf 
 
 efi_cflags = \
 	$(EFI_CFLAGS) \
@@ -136,6 +145,14 @@ EXTRA_DIST += $(efi_sources) $(efi_headers)
 
 $(top_builddir)/src/efi/%.o: $(top_srcdir)/src/efi/%.c $(addprefix $(top_srcdir)/,$(efi_headers))
 	@$(MKDIR_P) $(top_builddir)/src/efi/
+	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
+
+$(top_builddir)/src/multiboot2/%.o: $(top_srcdir)/src/multiboot2/%.c $(addprefix $(top_srcdir)/,$(efi_headers))
+	@$(MKDIR_P) $(top_builddir)/src/multiboot2/
+	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
+
+$(top_builddir)/src/elf/%.o: $(top_srcdir)/src/elf/%.c $(addprefix $(top_srcdir)/,$(efi_headers))
+	@$(MKDIR_P) $(top_builddir)/src/elf/
 	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
 
 $(efi_solib): $(efi_objects)

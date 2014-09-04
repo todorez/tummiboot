@@ -27,11 +27,11 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <multiboot2_util.h>
 
 #include "util.h"
 #include "console.h"
 #include "graphics.h"
-#include "multiboot2_util.h"
 
 
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
@@ -1646,9 +1646,7 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
         EFI_HANDLE image;
         EFI_DEVICE_PATH *path;
         CHAR16 *options;
-        CHAR8 *mboot2_header_buf = NULL ;
         CHAR8 *os_buf = NULL ;
-        UINTN len = MULTIBOOT_SEARCH;
 
         path = FileDevicePath(entry->device, entry->loader);
         if (!path) {
@@ -1658,13 +1656,22 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
         }
 
         if(entry->multiboot2){
-        	err = copy_file_buf(parent_image, entry->multiboot2, &mboot2_header_buf, &len) ;
+        	err = copy_file_buf(parent_image, entry->multiboot2, &os_buf, 0) ;
         	if (EFI_ERROR(err))
         		goto out;
 
-        	err = parse_header(mboot2_header_buf,len) ;
-        	if (EFI_ERROR(err))
+        	/*parse multiboot2 header*/
+        	err = parse_header(os_buf,MULTIBOOT_SEARCH) ;
+
+        	/*load as elf binary*/
+        	if(err == EFI_LOAD_ELF){
+        		err = load_elf(os_buf) ;
+        		if (EFI_ERROR(err))
+        			goto out;
+        	}else if (EFI_ERROR(err))
         		goto out;
+
+        	//we should never reach this point
         }
 
         err = uefi_call_wrapper(BS->LoadImage, 6, FALSE, parent_image, path, NULL, 0, &image);
