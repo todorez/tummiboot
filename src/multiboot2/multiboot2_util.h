@@ -2,9 +2,9 @@
 #define __MULTIBOOT2_UTIL_H
 
 #include <efi.h>
-#include <efilib.h>
 #include "multiboot2.h"
 
+#define EFI_LOAD_ELF	50
 #define MULTIBOOT_OS_CONSOLE_EGA_TEXT 1
 #define MULTIBOOT_CONSOLE_FRAMEBUFFER 2
 
@@ -37,6 +37,8 @@ typedef mboot_hdr_tag_fbuf_t* mboot_hdr_tag_fbuf_p ;
 
 EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *mboot_file, CHAR8 **buf, UINTN *mboot_len) ;
 EFI_STATUS parse_header(CHAR8 *buf, UINTN len) ;
+EFI_STATUS load_elf(CHAR8 *buf) ;
+void *memcpy(void *dst0, const void *src0, unsigned long length) ;
 
 
 #endif

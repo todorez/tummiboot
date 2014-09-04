@@ -1,3 +1,6 @@
+
+#include <efi.h>
+#include <efilib.h>
 #include "multiboot2_util.h"
 
 EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UINTN *buf_len ){
@@ -74,7 +77,7 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 	mboot_hdr_p hdr ;
 	mboot_hdr_tag_p tag;
 	mboot_hdr_tag_addr_p addr_tag = NULL;
-	uint32_t entry_addr_tag = NULL;
+	uint32_t entry_addr_tag ;
 	mboot_hdr_tag_fbuf_p fbtag = NULL;
 
 	int supported_consoles = MULTIBOOT_OS_CONSOLE_EGA_TEXT;
@@ -86,15 +89,15 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 		//TODO - remove debug messages
 		if (hdr->magic == MULTIBOOT2_HEADER_MAGIC){
 			Print(L"Found multiboot2 header!\n");
-			uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
+			uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 			if(!(hdr->magic + hdr->architecture+ hdr->header_length + hdr->checksum)){
 				Print(L"Validated architecture!\n");
-				uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
+				uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 
 				if(hdr->architecture == MULTIBOOT_ARCHITECTURE_I386)
 					Print(L"Validated multiboot2 checksum!\n");
 
-				uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
+				uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 				break ;
 			}
 		}
@@ -202,9 +205,9 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 		Print(L"TODO - parse address tag. Feature not implemented yet.\n");
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 	}else{
-		Print(L"TODO - Begin loading ELF file. Under development\n");
-		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-		//launch as elf binary then - tboot (*cough*)
+		Print(L"%s : %d: Loading as ELF binary \n", __FILE__, __LINE__);
+		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
+		return EFI_LOAD_ELF ;
 	}
 	return EFI_SUCCESS;
 
