@@ -1647,6 +1647,7 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
         EFI_DEVICE_PATH *path;
         CHAR16 *options;
         CHAR8 *os_buf = NULL ;
+        void *elf_entry ;
 
         path = FileDevicePath(entry->device, entry->loader);
         if (!path) {
@@ -1665,12 +1666,17 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
 
         	/*load as elf binary*/
         	if(err == EFI_LOAD_ELF){
-        		err = load_elf(os_buf) ;
+        		err = load_elf(os_buf, &elf_entry) ;
         		if (EFI_ERROR(err))
         			goto out;
         	}else if (EFI_ERROR(err))
         		goto out;
 
+        	err = populate_mbi2() ;
+        	if (EFI_ERROR(err))
+        		goto out;
+
+        	start_elf(elf_entry);
         	//we should never reach this point
         }
 
