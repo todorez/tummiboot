@@ -209,7 +209,95 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 		return EFI_LOAD_ELF ;
 	}
+
 	return EFI_SUCCESS;
 
 }
+
+static UINT32 get_mbi2_size (void)
+{
+	UINT32 mbi2_size ;
+	mbi2_size =
+
+	/** FIXED PART **/
+
+	/* total_size */
+	sizeof (UINT32)
+
+	/* reserved */
+	+ sizeof (UINT32)
+
+	/** TAGS PART **/
+
+    /* TODO - cmd line */
+
+
+    /* TODO - bootloader name */
+
+
+    /* TODO - modules */
+
+    /* memory info */
+    + ALIGN_UP (sizeof (struct multiboot_tag_basic_meminfo),
+		MULTIBOOT_TAG_ALIGN)
+
+	/* boot device */
+    + ALIGN_UP (sizeof (struct multiboot_tag_bootdev),
+    	MULTIBOOT_TAG_ALIGN)
+
+    /* TODO - ELF symbols */
+
+    /* TODO - memory map */
+
+	/* framebuffer info */
+	+ ALIGN_UP (sizeof (struct multiboot_tag_framebuffer),
+		MULTIBOOT_TAG_ALIGN)
+
+	/* EFI32 */
+	+ ALIGN_UP (sizeof (struct multiboot_tag_efi32),
+		MULTIBOOT_TAG_ALIGN)
+
+	/* EFI64 */
+	+ ALIGN_UP (sizeof (struct multiboot_tag_efi64),
+		MULTIBOOT_TAG_ALIGN)
+
+	/* TODO - ACPI old */
+
+	/* TODO -ACPI new */
+
+	/* TODO - Network */
+
+	/* TODO - EFI mmap */
+
+	/* VBE */
+    + sizeof (struct multiboot_tag_vbe) +
+    	MULTIBOOT_TAG_ALIGN - 1
+
+    /* APM */
+    + sizeof (struct multiboot_tag_apm) +
+    	MULTIBOOT_TAG_ALIGN - 1;
+
+  return mbi2_size ;
+}
+
+EFI_STATUS populate_mbi2(void){
+
+    EFI_STATUS err;
+
+	VOID* mbi2_buf = NULL ;
+
+	mbi2_buf = AllocateZeroPool(get_mbi2_size()) ;
+	if(!mbi2_buf){
+		Print(L"multiboot2.c : Error populating mbi2 %d.\n", __LINE__);
+		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+		return EFI_LOAD_ERROR ;
+	}
+	else{
+		Print(L"multiboot2.c : Populating mbi2 %d.\n", __LINE__);
+		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+	}
+
+	return EFI_SUCCESS ;
+}
+
 
