@@ -47,46 +47,6 @@ static const char __attribute__((used)) magic[] = "#### LoaderInfo: gummiboot " 
 
 static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 
-enum loader_type {
-        LOADER_UNDEFINED,
-        LOADER_EFI,
-        LOADER_LINUX
-};
-
-typedef struct {
-        CHAR16 *file;
-        CHAR16 *title_show;
-        CHAR16 *title;
-        CHAR16 *version;
-        CHAR16 *machine_id;
-        EFI_HANDLE *device;
-        enum loader_type type;
-        CHAR16 *loader;
-        CHAR16 *multiboot2;
-        CHAR16 *options;
-        CHAR16 *splash;
-        CHAR16 key;
-        EFI_STATUS (*call)(void);
-        BOOLEAN no_autoselect;
-        BOOLEAN non_unique;
-} ConfigEntry;
-
-typedef struct {
-        ConfigEntry **entries;
-        UINTN entry_count;
-        INTN idx_default;
-        INTN idx_default_efivar;
-        UINTN timeout_sec;
-        UINTN timeout_sec_config;
-        INTN timeout_sec_efivar;
-        CHAR16 *entry_default_pattern;
-        CHAR16 *splash;
-        EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background;
-        CHAR16 *entry_oneshot;
-        CHAR16 *options_edit;
-        CHAR16 *entries_auto;
-} Config;
-
 static void cursor_left(UINTN *cursor, UINTN *first)
 {
         if ((*cursor) > 0)
@@ -1672,7 +1632,7 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
         	}else if (EFI_ERROR(err))
         		goto out;
 
-        	err = populate_mbi2() ;
+        	err = populate_mbi2(entry) ;
         	if (EFI_ERROR(err))
         		goto out;
 

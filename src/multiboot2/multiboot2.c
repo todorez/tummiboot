@@ -3,6 +3,9 @@
 #include <efilib.h>
 #include "multiboot2_util.h"
 
+static efi_mmap_t efi_mmap ;
+
+
 EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UINTN *buf_len ){
     EFI_STATUS err;
 	EFI_LOADED_IMAGE *loaded_image;
@@ -214,12 +217,68 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 
 }
 
-static UINT32 get_mbi2_size (void)
+
+EFI_STATUS get_efi_mmap(){
+
+	EFI_STATUS err ;
+	UINTN mmap_size = 0 ;
+	EFI_MEMORY_DESCRIPTOR *mmap = NULL;
+	UINTN                 mapkey;
+	UINTN                 desc_size;
+	UINT32                desc_ver;
+	efi_mmap_t efi_mmap ;
+
+	err = uefi_call_wrapper(BS->GetMemoryMap,5,
+			&mmap_size, NULL, NULL, &desc_size, NULL);
+
+	/* Get mmap size only. BUFFER TOO SMALL expected here */
+	if (err != EFI_BUFFER_TOO_SMALL) {
+		Print(L"multiboot2:%d ERROR: %d Unable to get efi memory map size\n", __LINE__, err);
+		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+		return EFI_LOAD_ERROR;
+	}
+
+	mmap = (EFI_MEMORY_DESCRIPTOR *) AllocateZeroPool(mmap_size) ;
+	if (!mmap)
+		Print(L"multiboot2:%d ERROR:%d Unable to allocate efi mmap memory\n", __LINE__, err);
+
+	/* get the real memory map */
+	err = uefi_call_wrapper(BS->GetMemoryMap,5,
+				&mmap_size, mmap, &mapkey, &desc_size, &desc_ver);
+	if (EFI_ERROR(err)) {
+		Print(L"multiboot2:%d ERROR:%d Unable to get efi memory map\n", __LINE__, err);
+		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+		return EFI_LOAD_ERROR;
+	}
+
+	efi_mmap.mmap_size = mmap_size ;
+	efi_mmap.mmap = mmap ;
+	efi_mmap.mapkey = mapkey ;
+	efi_mmap.desc_size = desc_size ;
+	efi_mmap.desc_ver = desc_ver ;
+
+	Print(L"cmd line : mmap_size : %d desc_size : %d.\n", mmap_size, desc_size );
+			uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+
+	return EFI_SUCCESS ;
+
+}
+
+static UINT32 get_mbi2_size (const ConfigEntry *entry)
 {
 	UINT32 mbi2_size ;
+	EFI_STATUS err ;
+
+	err = get_efi_mmap() ;
+	if (EFI_ERROR(err)) {
+		Print(L"multiboot2:%d ERROR:%d Unable to get efi memory map\n", __LINE__, err);
+		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+		return EFI_LOAD_ERROR;
+	}
+
 	mbi2_size =
 
-	/** FIXED PART **/
+	/******************** FIXED PART ********************/
 
 	/* total_size */
 	sizeof (UINT32)
@@ -227,15 +286,18 @@ static UINT32 get_mbi2_size (void)
 	/* reserved */
 	+ sizeof (UINT32)
 
-	/** TAGS PART **/
+	/******************** TAGS PART ********************/
 
-    /* TODO - cmd line */
+    /* cmd line */
+	 + (sizeof (struct multiboot_tag_string)
+	       + ALIGN_UP (StrLen(entry->options) * sizeof(CHAR16), MULTIBOOT_TAG_ALIGN))
 
+	/* bootloader name */
+	+ (sizeof (struct multiboot_tag_string)
+	       + ALIGN_UP (sizeof (PACKAGE_STRING), MULTIBOOT_TAG_ALIGN))
 
-    /* TODO - bootloader name */
-
-
-    /* TODO - modules */
+    /* modules - kernel + initrd */
+	+ 2 * (sizeof (struct multiboot_tag_module))
 
     /* memory info */
     + ALIGN_UP (sizeof (struct multiboot_tag_basic_meminfo),
@@ -247,7 +309,7 @@ static UINT32 get_mbi2_size (void)
 
     /* TODO - ELF symbols */
 
-    /* TODO - memory map */
+    /* TODO - E820 mmap */
 
 	/* framebuffer info */
 	+ ALIGN_UP (sizeof (struct multiboot_tag_framebuffer),
@@ -267,7 +329,9 @@ static UINT32 get_mbi2_size (void)
 
 	/* TODO - Network */
 
-	/* TODO - EFI mmap */
+	/* EFI mmap */
+	+ ALIGN_UP (sizeof (struct multiboot_tag_efi_mmap)
+				+ efi_mmap.mmap_size, MULTIBOOT_TAG_ALIGN)
 
 	/* VBE */
     + sizeof (struct multiboot_tag_vbe) +
@@ -277,27 +341,85 @@ static UINT32 get_mbi2_size (void)
     + sizeof (struct multiboot_tag_apm) +
     	MULTIBOOT_TAG_ALIGN - 1;
 
+	Print(L"cmd line : cmd %s num %d.\n", entry->options,
+			ALIGN_UP (StrLen(entry->options) * sizeof(CHAR16), MULTIBOOT_TAG_ALIGN));
+			uefi_call_wrapper(BS->Stall, 1, 5 * 1000 * 1000);
   return mbi2_size ;
 }
 
-EFI_STATUS populate_mbi2(void){
+EFI_STATUS populate_mbi2(const ConfigEntry *entry){
 
-    EFI_STATUS err;
+	VOID *mbi2_buf = NULL, *tmp = NULL ;
 
-	VOID* mbi2_buf = NULL ;
-
-	mbi2_buf = AllocateZeroPool(get_mbi2_size()) ;
+	mbi2_buf = AllocateZeroPool(get_mbi2_size(entry)) ;
 	if(!mbi2_buf){
-		Print(L"multiboot2.c : Error populating mbi2 %d.\n", __LINE__);
+		Print(L"cmd line : Error populating mbi2 %d.\n", __LINE__);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+
 		return EFI_LOAD_ERROR ;
 	}
 	else{
 		Print(L"multiboot2.c : Populating mbi2 %d.\n", __LINE__);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+
+		tmp = mbi2_buf ;
+		/******************** FIXED PART ********************/
+
+		/* total_size - populate at the end */
+		((UINT32 *) tmp)[0] = 0 ;
+
+		/* reserved */
+		((UINT32 *) tmp)[1] = 0 ;
+		/******************** TAGS PART ********************/
+
+		/* cmd line */
+
+		tmp += 2 * sizeof(UINT32) ;
+		struct multiboot_tag_string *tag = (struct multiboot_tag_string *) tmp;
+		tag->type = MULTIBOOT_TAG_TYPE_CMDLINE;
+		tag->size = sizeof (struct multiboot_tag_string) + (StrLen(entry->options) * sizeof(CHAR16));
+		memcpy(tag->string, entry->options, (StrLen(entry->options) * sizeof(CHAR16))) ;
+		tmp += ALIGN_UP (tag->size, MULTIBOOT_TAG_ALIGN) ;
+
+		/* TODO - bootloader name */
+
+		/* TODO - modules - kernel + initrd */
+
+		/* TODO - memory info */
+
+		/* TODO - boot device */
+
+		/* TODO - ELF symbols */
+
+		/* TODO - E820 mmap */
+
+		/* TODO - framebuffer info */
+
+		/* TODO - EFI32 */
+
+		/* TODO - EFI64 */
+
+		/* TODO - ACPI old */
+
+		/* TODO - ACPI new */
+
+		/* TODO - Network */
+
+		/* TODO - EFI mmap */
+
+		/* TODO - VBE */
+
+		/* TODO - APM */
+
+		/* total_size */
+		((UINT32 *) mbi2_buf)[0] = (char *) tmp - (char *) mbi2_buf; ;
+
 	}
 
 	return EFI_SUCCESS ;
 }
+
+
+
 
 

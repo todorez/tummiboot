@@ -11,6 +11,54 @@
 #define ALIGN_UP(addr, align) \
         ((addr + (typeof (addr)) align - 1) & ~((typeof (addr)) align - 1))
 
+enum loader_type {
+        LOADER_UNDEFINED,
+        LOADER_EFI,
+        LOADER_LINUX
+};
+
+typedef struct {
+        CHAR16 *file;
+        CHAR16 *title_show;
+        CHAR16 *title;
+        CHAR16 *version;
+        CHAR16 *machine_id;
+        EFI_HANDLE *device;
+        enum loader_type type;
+        CHAR16 *loader;
+        CHAR16 *multiboot2;
+        CHAR16 *options;
+        CHAR16 *splash;
+        CHAR16 key;
+        EFI_STATUS (*call)(void);
+        BOOLEAN no_autoselect;
+        BOOLEAN non_unique;
+} ConfigEntry;
+
+typedef struct {
+        ConfigEntry **entries;
+        UINTN entry_count;
+        INTN idx_default;
+        INTN idx_default_efivar;
+        UINTN timeout_sec;
+        UINTN timeout_sec_config;
+        INTN timeout_sec_efivar;
+        CHAR16 *entry_default_pattern;
+        CHAR16 *splash;
+        EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background;
+        CHAR16 *entry_oneshot;
+        CHAR16 *options_edit;
+        CHAR16 *entries_auto;
+} Config;
+
+typedef struct {
+  UINTN                 mmap_size;
+  EFI_MEMORY_DESCRIPTOR *mmap;
+  UINTN                 mapkey;
+  UINTN                 desc_size;
+  UINT32                desc_ver;
+}efi_mmap_t;
+
 typedef enum { false, true } bool;
 
 typedef struct multiboot_header mboot_hdr_t ;
@@ -39,7 +87,7 @@ EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *mboot_file, CHAR8 **bu
 EFI_STATUS parse_header(CHAR8 *buf, UINTN len) ;
 EFI_STATUS load_elf(CHAR8 *buf, void **entry) ;
 EFI_STATUS start_elf(void *buf) ;
-EFI_STATUS populate_mbi2(void) ;
+EFI_STATUS populate_mbi2(const ConfigEntry *entry) ;
 void *memcpy(void *dst0, const void *src0, unsigned long length) ;
 
 
