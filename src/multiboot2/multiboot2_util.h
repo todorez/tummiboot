@@ -26,6 +26,7 @@ typedef struct {
         EFI_HANDLE *device;
         enum loader_type type;
         CHAR16 *loader;
+        CHAR16 *initrd;
         CHAR16 *multiboot2;
         CHAR16 *options;
         CHAR16 *splash;
@@ -87,7 +88,7 @@ EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *mboot_file, CHAR8 **bu
 EFI_STATUS parse_header(CHAR8 *buf, UINTN len) ;
 EFI_STATUS load_elf(CHAR8 *buf, void **entry) ;
 EFI_STATUS start_elf(void *buf) ;
-EFI_STATUS populate_mbi2(const ConfigEntry *entry) ;
+EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry) ;
 void *memcpy(void *dst0, const void *src0, unsigned long length) ;
 
 
