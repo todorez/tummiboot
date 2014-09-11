@@ -1131,6 +1131,7 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
                         CHAR16 *new;
 
                         new = stra_to_path(value);
+                        entry->initrd = stra_to_path(value);
                         if (initrd) {
                                 CHAR16 *s;
 
@@ -1632,7 +1633,7 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
         	}else if (EFI_ERROR(err))
         		goto out;
 
-        	err = populate_mbi2(entry) ;
+        	err = populate_mbi2(parent_image, entry) ;
         	if (EFI_ERROR(err))
         		goto out;
 
