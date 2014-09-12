@@ -4,7 +4,17 @@
 #include <efi.h>
 #include "multiboot2.h"
 
-#define EFI_LOAD_ELF	50
+#define EFI_LOAD_ELF			50
+
+#define E820_MAX_ENTRIES		128
+#define E820_RAM        1
+#define E820_RESERVED   2
+#define E820_ACPI       3
+#define E820_NVS        4
+#define E820_EXEC_CODE  5
+
+
+
 #define MULTIBOOT_OS_CONSOLE_EGA_TEXT 1
 #define MULTIBOOT_CONSOLE_FRAMEBUFFER 2
 
@@ -59,6 +69,12 @@ typedef struct {
   UINTN                 desc_size;
   UINT32                desc_ver;
 }efi_mmap_t;
+
+typedef struct{
+	UINT64 start;
+	UINT64 size;
+	UINT32 type;
+} __attribute__((packed)) e820_entry_t;
 
 typedef enum { false, true } bool;
 
