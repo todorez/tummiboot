@@ -103,9 +103,10 @@ typedef mboot_hdr_tag_fbuf_t* mboot_hdr_tag_fbuf_p ;
 EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *mboot_file, CHAR8 **buf, UINTN *mboot_len) ;
 EFI_STATUS parse_header(CHAR8 *buf, UINTN len) ;
 EFI_STATUS load_elf(CHAR8 *buf, void **entry) ;
-EFI_STATUS start_elf(void *buf) ;
+void start_elf(void *buf) ;
 EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry) ;
 void *memcpy(void *dst0, const void *src0, unsigned long length) ;
+int memcmp (const void *s1, const void *s2, unsigned n) ;
 
 
 #endif
