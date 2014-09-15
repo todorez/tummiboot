@@ -91,6 +91,7 @@ efi_headers = \
 	src/efi/graphics.h \
 	src/multiboot2/multiboot2.h	\
 	src/multiboot2/multiboot2_util.h	\
+	src/multiboot2/acpi.h	\
 	src/elf/elf.h	
 
 efi_cppflags = \
