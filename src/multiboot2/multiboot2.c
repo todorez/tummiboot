@@ -425,27 +425,123 @@ EFI_STATUS get_efi_mmap(){
 
 }
 
-EFI_STATUS mbi2_populate_framebuffer(VOID** mbi2_buf){
+static int gop_get_bpp (EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *mode_info){
+	uint32_t total_mask;
+	int i;
+	switch (mode_info->PixelFormat){
+		case PixelBlueGreenRedReserved8BitPerColor:
+		case PixelRedGreenBlueReserved8BitPerColor:
+			return 32;
 
+		case PixelBitMask:
+			if ((mode_info->PixelInformation.RedMask & mode_info->PixelInformation.GreenMask)
+				|| (mode_info->PixelInformation.RedMask & mode_info->PixelInformation.BlueMask)
+				|| (mode_info->PixelInformation.GreenMask & mode_info->PixelInformation.BlueMask)
+				|| (mode_info->PixelInformation.RedMask & mode_info->PixelInformation.ReservedMask)
+				|| (mode_info->PixelInformation.GreenMask & mode_info->PixelInformation.ReservedMask)
+				|| (mode_info->PixelInformation.BlueMask & mode_info->PixelInformation.ReservedMask))
+				return 0;
+
+			total_mask = mode_info->PixelInformation.RedMask | mode_info->PixelInformation.GreenMask
+				| mode_info->PixelInformation.BlueMask | mode_info->PixelInformation.ReservedMask;
+
+			for(i = 31; i >= 0; i--)
+				if (total_mask & (1 << i))
+					return i + 1;
+
+		default:
+			return 0;
+	}
+}
+
+static void gop_get_bitmask (uint32_t mask, unsigned int *mask_size, unsigned int *field_pos){
+	int i;
+	int last_p;
+
+	for (i = 31; i >= 0; i--)
+		if (mask & (1 << i))
+			break;
+
+	if (i == -1){
+		*mask_size = *field_pos = 0;
+		return;
+	}
+
+	last_p = i;
+
+	for (; i >= 0; i--)
+		if (!(mask & (1 << i)))
+			break;
+
+	*field_pos = i + 1;
+	*mask_size = last_p - *field_pos + 1;
+}
+
+EFI_STATUS set_rgbr_mask_sz_fld_pos(EFI_GRAPHICS_PIXEL_FORMAT  PixelFormat, EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *mode_info,
+		fb_rgbr_mask_field_t *mask_fld){
+
+	switch (PixelFormat){
+		case PixelRedGreenBlueReserved8BitPerColor:
+			mask_fld->r_mask_sz = 8;
+			mask_fld->r_fld_pos = 0;
+			mask_fld->g_mask_sz = 8;
+			mask_fld->g_fld_pos = 8;
+			mask_fld->b_mask_sz = 8;
+			mask_fld->b_fld_pos = 16;
+			mask_fld->res_mask_sz = 8;
+			mask_fld->res_fld_pos = 24;
+			break;
+
+		case PixelBlueGreenRedReserved8BitPerColor:
+			mask_fld->r_mask_sz = 8;
+			mask_fld->r_fld_pos = 16;
+			mask_fld->g_mask_sz = 8;
+			mask_fld->g_fld_pos = 8;
+			mask_fld->b_mask_sz = 8;
+			mask_fld->b_fld_pos = 0;
+			mask_fld->res_mask_sz = 8;
+			mask_fld->res_fld_pos = 24;
+			break;
+
+		case PixelBitMask:
+			gop_get_bitmask (mode_info->PixelInformation.RedMask, &mask_fld->r_mask_sz,
+				&mask_fld->r_fld_pos);
+			gop_get_bitmask (mode_info->PixelInformation.GreenMask, &mask_fld->g_mask_sz,
+				&mask_fld->g_fld_pos);
+			gop_get_bitmask (mode_info->PixelInformation.BlueMask, &mask_fld->b_mask_sz,
+				&mask_fld->b_fld_pos);
+			gop_get_bitmask (mode_info->PixelInformation.ReservedMask, &mask_fld->res_mask_sz,
+				&mask_fld->res_fld_pos);
+			break;
+
+		default:
+			return EFI_LOAD_ERROR ;
+	}
+	return EFI_SUCCESS ;
+}
+
+EFI_STATUS mbi2_populate_framebuffer(VOID** mbi2_buf){
 
 	EFI_STATUS err;
 	EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
 	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info;
 	UINTN SizeOfInfo;
+	fb_rgbr_mask_field_t rgbr_mask_sz_fld_pos ;
 
 	err = LibLocateProtocol(&GraphicsOutputProtocol, (void **)&gop);
 
-	if (!EFI_ERROR(err)) {
-		Print(L"multiboot2.c : %d Retrieved GOP\n", __LINE__ );
+	if (EFI_ERROR(err)) {
+		Print(L"multiboot2.c : %d Unable to find GOP\n", __LINE__ );
 		uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
-	}
-	else
 		return EFI_LOAD_ERROR ;
+	}
 
 	err = uefi_call_wrapper(gop->QueryMode, 4, gop, gop->Mode->Mode,&SizeOfInfo, &info);
 	if (EFI_ERROR(err) && err == EFI_NOT_STARTED){
 		err = uefi_call_wrapper(gop->SetMode, 2, gop, gop->Mode->Mode);
-		err = uefi_call_wrapper(gop->QueryMode, 4, gop, gop->Mode->Mode,&SizeOfInfo, &info);
+
+		if (!EFI_ERROR(err))
+			err = uefi_call_wrapper(gop->QueryMode, 4, gop, gop->Mode->Mode,&SizeOfInfo, &info);
 	}
 
 	if (EFI_ERROR(err)) {
@@ -455,23 +551,55 @@ EFI_STATUS mbi2_populate_framebuffer(VOID** mbi2_buf){
 		return EFI_LOAD_ERROR ;
 	}
 
+	err=set_rgbr_mask_sz_fld_pos(info->PixelFormat, info, &rgbr_mask_sz_fld_pos) ;
+	if (EFI_ERROR(err)) {
+		CHAR16 Buffer[64];
+		StatusToString(Buffer, err);
+		Print(L"multiboot2.c : %d ERROR: GOP unsupported video mode : %s (%d)\n\n", __LINE__, Buffer, err);
+		return EFI_LOAD_ERROR ;
+	}
+
 	struct multiboot_tag_framebuffer *fb_tag
 	    = (struct multiboot_tag_framebuffer *) *mbi2_buf;
 
 	fb_tag->common.type = MULTIBOOT_TAG_TYPE_FRAMEBUFFER;
-	fb_tag->common.size = 0;
+	fb_tag->common.size = sizeof (struct multiboot_tag_framebuffer_common) + 6;
 	fb_tag->common.framebuffer_addr = gop->Mode->FrameBufferBase;
-	fb_tag->common.framebuffer_pitch = info->PixelsPerScanLine;
 	fb_tag->common.framebuffer_width = info->HorizontalResolution;
 	fb_tag->common.framebuffer_height = info->VerticalResolution;
-	//fb_tag->common.framebuffer_bpp = TODO
+	fb_tag->common.framebuffer_bpp = gop_get_bpp(info) ;
+	fb_tag->common.framebuffer_pitch = info->PixelsPerScanLine * (fb_tag->common.framebuffer_bpp >> 3);
 	fb_tag->common.reserved = 0;
 
-	Print(L"multiboot2.c : %d fb base %x pitch: %d x: %d y: %d\n", __LINE__,
-			gop->Mode->FrameBufferBase, info->PixelsPerScanLine, info->HorizontalResolution, info->VerticalResolution );
 
+	fb_tag->common.framebuffer_type = MULTIBOOT_FRAMEBUFFER_TYPE_RGB;
+	fb_tag->framebuffer_red_field_position = rgbr_mask_sz_fld_pos.r_fld_pos;
+	fb_tag->framebuffer_red_mask_size = rgbr_mask_sz_fld_pos.r_mask_sz;
+	fb_tag->framebuffer_green_field_position = rgbr_mask_sz_fld_pos.g_fld_pos;
+	fb_tag->framebuffer_green_mask_size = rgbr_mask_sz_fld_pos.g_mask_sz;
+	fb_tag->framebuffer_blue_field_position = rgbr_mask_sz_fld_pos.b_fld_pos;
+	fb_tag->framebuffer_blue_mask_size = rgbr_mask_sz_fld_pos.b_mask_sz;
 
-	return err ;
+	/* TODO - DEBUG framebuffer tag*/
+	Print(L"multiboot2.c : %d fb type %d \n", __LINE__, fb_tag->common.type) ;
+	Print(L"multiboot2.c : %d fb size %d \n", __LINE__, fb_tag->common.size) ;
+	Print(L"multiboot2.c : %d fb base %x \n", __LINE__, fb_tag->common.framebuffer_addr) ;
+	Print(L"multiboot2.c : %d fb width %d \n", __LINE__, fb_tag->common.framebuffer_width) ;
+	Print(L"multiboot2.c : %d fb height %d \n", __LINE__, fb_tag->common.framebuffer_height) ;
+	Print(L"multiboot2.c : %d fb bpp %d \n", __LINE__, fb_tag->common.framebuffer_bpp) ;
+	Print(L"multiboot2.c : %d fb pitch %d \n", __LINE__, fb_tag->common.framebuffer_pitch) ;
+	Print(L"multiboot2.c : %d fb fb type%d \n", __LINE__, fb_tag->common.framebuffer_type) ;
+
+	Print(L"multiboot2.c : %d fb r_fld_pos %d \n", __LINE__, fb_tag->framebuffer_red_field_position) ;
+	Print(L"multiboot2.c : %d fb r_mask_sz %d \n", __LINE__, fb_tag->framebuffer_red_mask_size) ;
+	Print(L"multiboot2.c : %d fb g_fld_pos %d \n", __LINE__, fb_tag->framebuffer_green_field_position) ;
+	Print(L"multiboot2.c : %d fb g_mask_sz %d \n", __LINE__, fb_tag->framebuffer_green_mask_size) ;
+	Print(L"multiboot2.c : %d fb b_fld_pos %d \n", __LINE__, fb_tag->framebuffer_blue_field_position) ;
+	Print(L"multiboot2.c : %d fb b_mask_sz %d \n", __LINE__, fb_tag->framebuffer_blue_mask_size) ;
+
+	*mbi2_buf += ALIGN_UP(fb_tag->common.size, MULTIBOOT_TAG_ALIGN) ;
+
+	return EFI_SUCCESS ;
 }
 
 
@@ -572,7 +700,7 @@ static UINT32 get_mbi2_size (const ConfigEntry *entry)
 
 	/* boot device - BIOS */
 
-	/* TODO - ELF symbols - not used by tboot */
+	/* ELF symbols - not used by tboot */
 
 	/* mmap */
 	+ ALIGN_UP ((sizeof (struct multiboot_tag_mmap)
@@ -746,7 +874,7 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 
 		/* boot device - BIOS */
 
-		/* TODO - ELF symbols */
+		/* ELF symbols - not used by tboot */
 
 		/* mmap */
 		struct multiboot_tag_mmap *e820_mmap_tag = (struct multiboot_tag_mmap *) tmp;
@@ -768,14 +896,13 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 			Print(L"addr : %x - len : %x - type : %d\n", mmap_entry[i].addr, mmap_entry[i].len, mmap_entry[i].type );
 		}
 		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
-
 		tmp += ALIGN_UP (e820_mmap_tag->size, MULTIBOOT_TAG_ALIGN);
 
 
-		/* TODO - framebuffer info */
+		/* framebuffer info */
 		err = mbi2_populate_framebuffer(&tmp) ;
 		if (EFI_ERROR(err)){
-			Print(L"multiboot2.c : %d Error loading initrd %d.\n", __LINE__, err);
+			Print(L"multiboot2.c : %d Error populating framebuffer %d.\n", __LINE__, err);
 			uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 			return EFI_LOAD_ERROR ;
 		}
@@ -790,7 +917,6 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 		tmp += ALIGN_UP (efi64_tag->size, MULTIBOOT_TAG_ALIGN) ;
 
 		/* ACPI old */
-
 		if (acpi1_rsdp){
 			struct multiboot_tag_old_acpi *acpiv1_tag =
 					(struct multiboot_tag_old_acpi *)tmp;
