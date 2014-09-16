@@ -76,6 +76,18 @@ typedef struct{
 	UINT32 type;
 } __attribute__((packed)) e820_entry_t;
 
+typedef struct{
+	  unsigned int r_mask_sz;
+	  unsigned int r_fld_pos;
+	  unsigned int g_mask_sz;
+	  unsigned int g_fld_pos;
+	  unsigned int b_mask_sz;
+	  unsigned int b_fld_pos;
+	  unsigned int res_mask_sz;
+	  unsigned int res_fld_pos;
+
+}fb_rgbr_mask_field_t ;
+
 typedef enum { false, true } bool;
 
 typedef struct multiboot_header mboot_hdr_t ;
