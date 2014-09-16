@@ -1097,6 +1097,11 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
                         entry->multiboot2 = stra_to_path(value);
                         continue;
                 }
+                if (strcmpa((CHAR8 *)"acm", key) == 0) {
+                        FreePool(entry->acm);
+                        entry->acm = stra_to_path(value);
+                        continue;
+                }
                 if (strcmpa((CHAR8 *)"linux", key) == 0) {
                         FreePool(entry->loader);
                         entry->type = LOADER_LINUX;
@@ -1609,6 +1614,8 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
         CHAR16 *options;
         CHAR8 *os_buf = NULL ;
         void *elf_entry ;
+        void *mbi2_buf = NULL ;
+
 
         path = FileDevicePath(entry->device, entry->loader);
         if (!path) {
@@ -1633,11 +1640,11 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
           }else if (EFI_ERROR(err))
             goto out;
 
-          err = populate_mbi2(parent_image, entry) ;
+          err = populate_mbi2(parent_image, entry, &mbi2_buf) ;
           if (EFI_ERROR(err))
             goto out;
 
-          start_elf(elf_entry);
+          start_elf(elf_entry, mbi2_buf);
           /* we should never reach this point */
         }
 
@@ -1747,6 +1754,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* export the device path this image is started from */
+        Print(L"Image base        : %lx\n", loaded_image->ImageBase);
+        Print(L"Image size        : %lx\n", loaded_image->ImageSize);
+        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+
         device_path = DevicePathFromHandle(loaded_image->DeviceHandle);
         if (device_path) {
                 CHAR16 *str;
