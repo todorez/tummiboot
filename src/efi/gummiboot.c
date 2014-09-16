@@ -1097,6 +1097,11 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
                         entry->multiboot2 = stra_to_path(value);
                         continue;
                 }
+                if (strcmpa((CHAR8 *)"acm", key) == 0) {
+                		FreePool(entry->acm);
+                        entry->acm = stra_to_path(value);
+                        continue;
+                }
                 if (strcmpa((CHAR8 *)"linux", key) == 0) {
                         FreePool(entry->loader);
                         entry->type = LOADER_LINUX;

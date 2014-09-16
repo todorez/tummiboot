@@ -38,6 +38,7 @@ typedef struct {
         CHAR16 *loader;
         CHAR16 *initrd;
         CHAR16 *multiboot2;
+        CHAR16 *acm;
         CHAR16 *options;
         CHAR16 *splash;
         CHAR16 key;
