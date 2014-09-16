@@ -88,11 +88,11 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 	mboot_hdr_tag_p tag;
 	mboot_hdr_tag_addr_p addr_tag = NULL;
 
-	/* these 4 are unused for the moment - IGNORE COMPILER WARNING*/
+	/* these 4 are unused for the moment - IGNORE COMPILER WARNING
 	bool console_required = false;
 	bool keep_bs = false;
 	uint32_t entry_addr_tag ;
-	mboot_hdr_tag_fbuf_p fbtag = NULL;
+	mboot_hdr_tag_fbuf_p fbtag = NULL; */
 
 	int supported_consoles = MULTIBOOT_OS_CONSOLE_EGA_TEXT;
 
@@ -172,7 +172,7 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 
 			case MULTIBOOT_HEADER_TAG_ENTRY_ADDRESS:
 				has_entry_addr_tag = true ;
-				entry_addr_tag = ((mboot_hdr_tag_entry_addr_p) tag)->entry_addr;
+				//entry_addr_tag = ((mboot_hdr_tag_entry_addr_p) tag)->entry_addr;
 				break;
 
 			case MULTIBOOT_HEADER_TAG_CONSOLE_FLAGS:
@@ -181,12 +181,12 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 					supported_consoles &= ~MULTIBOOT_OS_CONSOLE_EGA_TEXT;
 				if (((struct multiboot_header_tag_console_flags *) tag)->console_flags
 						& MULTIBOOT_CONSOLE_FLAGS_CONSOLE_REQUIRED)
-					console_required = true;
+					//console_required = true;
 
 				break;
 
 			case MULTIBOOT_HEADER_TAG_FRAMEBUFFER:
-				fbtag = (mboot_hdr_tag_fbuf_p) tag;
+				//fbtag = (mboot_hdr_tag_fbuf_p) tag;
 				supported_consoles |= MULTIBOOT_CONSOLE_FRAMEBUFFER;
 				break;
 
@@ -194,7 +194,7 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 				break;
 
 			case MULTIBOOT_HEADER_TAG_EFI_BS:
-				keep_bs = true;
+				//keep_bs = true;
 				break;
 
 			default:
