@@ -690,8 +690,8 @@ static UINT32 get_mbi2_size (const ConfigEntry *entry)
 	+ (sizeof (struct multiboot_tag_string)
 	       + ALIGN_UP (sizeof (PACKAGE_STRING), MULTIBOOT_TAG_ALIGN))
 
-    /* modules - kernel + initrd + 2 terminators*/
-	+ ALIGN_UP (2 * (sizeof (struct multiboot_tag_module)) + 2,
+    /* modules - kernel + initrd + acm + 3 terminators*/
+	+ ALIGN_UP (3 * (sizeof (struct multiboot_tag_module)) + 3,
 			MULTIBOOT_TAG_ALIGN)
 
     /* memory info */
@@ -789,8 +789,8 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 
 	EFI_STATUS err ;
 	VOID *tmp = NULL ;
-	CHAR8 *kernel_buf, *initrd_buf = NULL ;
-	UINTN kern_sz = 0, initrd_sz = 0, i ;
+	CHAR8 *kernel_buf= NULL, *initrd_buf = NULL, *acm_buf = NULL ;
+	UINTN kern_sz = 0, initrd_sz = 0, acm_sz = 0, i ;
 
 	mbi2_buf = AllocateZeroPool(get_mbi2_size(entry)) ;
 	if(!mbi2_buf){
@@ -829,7 +829,7 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 		memcpy(bootloader_tag->string, PACKAGE_STRING, sizeof (PACKAGE_STRING)) ;
 		tmp += ALIGN_UP (bootloader_tag->size, MULTIBOOT_TAG_ALIGN) ;
 
-		/* modules - kernel + initrd */
+		/* modules - kernel + initrd + acm*/
 		err = copy_file_buf(parent_image, entry->loader, &kernel_buf, &kern_sz) ;
 		if (EFI_ERROR(err) || !kernel_buf || !kern_sz){
 			Print(L"multiboot2.c : %d Error loading kernel %d.\n", __LINE__, err);
@@ -839,7 +839,7 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 
 		struct multiboot_tag_module *kernel_mod_tag = (struct multiboot_tag_module *) tmp;
 		kernel_mod_tag->type = MULTIBOOT_TAG_TYPE_MODULE;
-		kernel_mod_tag->size = sizeof (struct multiboot_tag_module) + sizeof(NULL);
+		kernel_mod_tag->size = sizeof (struct multiboot_tag_module) + 1;
 		kernel_mod_tag->mod_start = (uint64_t)kernel_buf;
 		kernel_mod_tag->mod_end = kernel_mod_tag->mod_start + kern_sz;
 		kernel_mod_tag->cmdline[0] = '\0';
@@ -854,11 +854,28 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 
 		struct multiboot_tag_module *initrd_mod_tag = (struct multiboot_tag_module *) tmp;
 		initrd_mod_tag->type = MULTIBOOT_TAG_TYPE_MODULE;
-		initrd_mod_tag->size = sizeof (struct multiboot_tag_module)+ sizeof(NULL);
+		initrd_mod_tag->size = sizeof (struct multiboot_tag_module)+ 1;
 		initrd_mod_tag->mod_start = (uint64_t)initrd_buf;
 		initrd_mod_tag->mod_end = initrd_mod_tag->mod_start + initrd_sz;
 		initrd_mod_tag->cmdline[0] = '\0' ;
 		tmp += ALIGN_UP (initrd_mod_tag->size, MULTIBOOT_TAG_ALIGN) ;
+
+
+		err = copy_file_buf(parent_image, entry->acm, &acm_buf, &acm_sz) ;
+		if (EFI_ERROR(err) || !acm_buf || !acm_sz){
+			Print(L"multiboot2.c : %d Error loading acm %d.\n", __LINE__, err);
+			uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+			return EFI_LOAD_ERROR ;
+		}
+
+		Print(L"multiboot2.c : %d ACM : %s\n", __LINE__,entry->acm ) ;
+		struct multiboot_tag_module *acm_mod_tag = (struct multiboot_tag_module *) tmp;
+		acm_mod_tag->type = MULTIBOOT_TAG_TYPE_MODULE;
+		acm_mod_tag->size = sizeof (struct multiboot_tag_module)+ 1;
+		acm_mod_tag->mod_start = (uint64_t)acm_buf;
+		acm_mod_tag->mod_end = initrd_mod_tag->mod_start + acm_sz;
+		acm_mod_tag->cmdline[0] = '\0' ;
+		tmp += ALIGN_UP (acm_mod_tag->size, MULTIBOOT_TAG_ALIGN) ;
 
 		/* memory info */
 		struct multiboot_tag_basic_meminfo *basic_meminfo_tag
