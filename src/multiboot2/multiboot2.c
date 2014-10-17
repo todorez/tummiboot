@@ -1,10 +1,8 @@
-
 #include <efi.h>
 #include <efilib.h>
 #include "acpi.h"
 #include "multiboot2_util.h"
 
-VOID *mbi2_buf = NULL ;
 static acpi1_rsdp_t *acpi1_rsdp = NULL;
 static acpi2_rsdp_t *acpi2_rsdp = NULL;
 static efi_mmap_t efi_mmap ;
@@ -74,7 +72,7 @@ EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UIN
 		return EFI_LOAD_ERROR;
 	} else{
 		Print(L"multiboot2.c : %d Read file : %s bytes read : %d\n", __LINE__, file, *buf_len);
-		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
+//		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 	}
 
 	uefi_call_wrapper(file_handle->Close, 1, file_handle);
@@ -416,7 +414,7 @@ EFI_STATUS get_efi_mmap(){
 	efi_mmap.desc_ver = desc_ver ;
 
 	Print(L"multiboot2.c : %d efi_mmap_size : %d desc_size : %d.\n", __LINE__, mmap_size, desc_size );
-	uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
+//	uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 
 	/* convert EFI mmap to E820 mmap */
 	convert_mmap_efi_e820(&efi_mmap) ;
@@ -520,7 +518,7 @@ EFI_STATUS set_rgbr_mask_sz_fld_pos(EFI_GRAPHICS_PIXEL_FORMAT  PixelFormat, EFI_
 	return EFI_SUCCESS ;
 }
 
-EFI_STATUS mbi2_populate_framebuffer(VOID** mbi2_buf){
+EFI_STATUS mbi2_populate_framebuffer(void** mbi2_buf){
 
 	EFI_STATUS err;
 	EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
@@ -785,15 +783,15 @@ multiboot_uint32_t get_e820_upper_mem(){
 
 }
 
-EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
+EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void** mbi2_buf){
 
 	EFI_STATUS err ;
 	VOID *tmp = NULL ;
 	CHAR8 *kernel_buf= NULL, *initrd_buf = NULL, *acm_buf = NULL ;
 	UINTN kern_sz = 0, initrd_sz = 0, acm_sz = 0, i ;
 
-	mbi2_buf = AllocateZeroPool(get_mbi2_size(entry)) ;
-	if(!mbi2_buf){
+	*mbi2_buf = AllocateZeroPool(get_mbi2_size(entry)) ;
+	if(!*mbi2_buf){
 		Print(L"multiboot2.c : %d : Error allocating mbi2 buffer.\n", __LINE__);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 
@@ -801,9 +799,9 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 	}
 	else{
 		Print(L"multiboot2.c : %d Populating mbi2.\n", __LINE__);
-		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+//		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 
-		tmp = mbi2_buf ;
+		tmp = *mbi2_buf ;
 
 		/******************** FIXED PART ********************/
 
@@ -912,7 +910,7 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 
 			Print(L"addr : %x - len : %x - type : %d\n", mmap_entry[i].addr, mmap_entry[i].len, mmap_entry[i].type );
 		}
-		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
+//		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 		tmp += ALIGN_UP (e820_mmap_tag->size, MULTIBOOT_TAG_ALIGN);
 
 
@@ -976,7 +974,7 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 		tmp += ALIGN_UP (end_tag->size, MULTIBOOT_TAG_ALIGN);
 
 		/* total_size */
-		((UINT32 *) mbi2_buf)[0] = (char *) tmp - (char *) mbi2_buf;
+		((UINT32 *) *mbi2_buf)[0] = (char *) tmp - (char *) *mbi2_buf;
 	}
 
 	return EFI_SUCCESS ;
