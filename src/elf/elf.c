@@ -171,8 +171,10 @@ void start_elf(void *buf, void* mbi2_buf){
 
 	__asm__ __volatile__ (
 	"push %2					;"
+	"mov  $0x36d76289, %%eax	;" /* TODO - Shouldn't be really needed, but EAX gets corrupted ? */
 	"ret						;"
-	:: 	"a" (MULTIBOOT2_BOOTLOADER_MAGIC),
+	::
+		"a" (MULTIBOOT2_BOOTLOADER_MAGIC),
 		"b" (mbi2_buf),
 		"c" (buf));
 

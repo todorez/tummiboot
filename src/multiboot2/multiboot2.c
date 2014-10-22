@@ -12,7 +12,13 @@ UINT8  g_e820_mmap[2560] ;
 extern EFI_GUID GraphicsOutputProtocol;
 
 
+CHAR8 * char16_to_char8 (IN CHAR16 *src, OUT CHAR8 *dest, IN UINT16 size){
 
+	int i ;
+	for (i= 0; i < size; i++)
+		dest[i] = (CHAR8) src[i];
+	return dest;
+}
 
 EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UINTN *buf_len ){
     EFI_STATUS err;
@@ -682,7 +688,7 @@ static UINT32 get_mbi2_size (const ConfigEntry *entry)
 
     /* cmd line */
 	 + (sizeof (struct multiboot_tag_string)
-	       + ALIGN_UP (StrLen(entry->options) * sizeof(CHAR16), MULTIBOOT_TAG_ALIGN))
+	       + ALIGN_UP (StrLen(entry->mboot2_options) * sizeof(CHAR8), MULTIBOOT_TAG_ALIGN))
 
 	/* bootloader name */
 	+ (sizeof (struct multiboot_tag_string)
@@ -816,8 +822,8 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 		/* cmd line */
 		struct multiboot_tag_string *cmd_line_tag = (struct multiboot_tag_string *) tmp;
 		cmd_line_tag->type = MULTIBOOT_TAG_TYPE_CMDLINE;
-		cmd_line_tag->size = sizeof (struct multiboot_tag_string) + (StrLen(entry->options) * sizeof(CHAR16));
-		memcpy(cmd_line_tag->string, entry->options, (StrLen(entry->options) * sizeof(CHAR16))) ;
+		cmd_line_tag->size = sizeof (struct multiboot_tag_string) + (StrLen(entry->mboot2_options) * sizeof(CHAR8));
+		char16_to_char8(entry->mboot2_options, (CHAR8 *) cmd_line_tag->string, StrLen(entry->mboot2_options)) ;
 		tmp += ALIGN_UP (cmd_line_tag->size, MULTIBOOT_TAG_ALIGN) ;
 
 		/* bootloader name */
@@ -871,7 +877,7 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 		acm_mod_tag->type = MULTIBOOT_TAG_TYPE_MODULE;
 		acm_mod_tag->size = sizeof (struct multiboot_tag_module)+ 1;
 		acm_mod_tag->mod_start = (uint64_t)acm_buf;
-		acm_mod_tag->mod_end = initrd_mod_tag->mod_start + acm_sz;
+		acm_mod_tag->mod_end = acm_mod_tag->mod_start + acm_sz;
 		acm_mod_tag->cmdline[0] = '\0' ;
 		tmp += ALIGN_UP (acm_mod_tag->size, MULTIBOOT_TAG_ALIGN) ;
 
