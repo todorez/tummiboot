@@ -47,7 +47,6 @@ gummiboot_CPPFLAGS = \
 	-DMACHINE_TYPE_NAME=\"$(MACHINE_TYPE_NAME)\" \
 	-DGUMMIBOOTLIBDIR=\"$(gummibootlibdir)\"
 
-
 gummiboot_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(BLKID_CFLAGS)

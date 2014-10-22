@@ -33,7 +33,6 @@
 #include "console.h"
 #include "graphics.h"
 
-
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
 #endif
@@ -1167,6 +1166,24 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
                         continue;
                 }
 
+                if (strcmpa((CHAR8 *)"multiboot2_options", key) == 0) {
+                        CHAR16 *new;
+
+                        new = stra_to_str(value);
+                        if (entry->mboot2_options) {
+                                CHAR16 *s;
+
+                                s = PoolPrint(L"%s %s", entry->mboot2_options, new);
+                                FreePool(entry->mboot2_options);
+                                entry->mboot2_options = s;
+                        } else {
+                                entry->mboot2_options = new;
+                                new = NULL;
+                        }
+                        FreePool(new);
+                        continue;
+                }
+
                 if (strcmpa((CHAR8 *)"splash", key) == 0) {
                         FreePool(entry->splash);
                         entry->splash = stra_to_path(value);
@@ -1752,11 +1769,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return err;
         }
-
-        /* export the device path this image is started from */
-        Print(L"Image base        : %lx\n", loaded_image->ImageBase);
-        Print(L"Image size        : %lx\n", loaded_image->ImageSize);
-        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 
         device_path = DevicePathFromHandle(loaded_image->DeviceHandle);
         if (device_path) {
