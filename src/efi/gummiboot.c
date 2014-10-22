@@ -1167,6 +1167,24 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
                         continue;
                 }
 
+                if (strcmpa((CHAR8 *)"multiboot2_options", key) == 0) {
+                        CHAR16 *new;
+
+                        new = stra_to_str(value);
+                        if (entry->mboot2_options) {
+                                CHAR16 *s;
+
+                                s = PoolPrint(L"%s %s", entry->mboot2_options, new);
+                                FreePool(entry->mboot2_options);
+                                entry->mboot2_options = s;
+                        } else {
+                                entry->mboot2_options = new;
+                                new = NULL;
+                        }
+                        FreePool(new);
+                        continue;
+                }
+
                 if (strcmpa((CHAR8 *)"splash", key) == 0) {
                         FreePool(entry->splash);
                         entry->splash = stra_to_path(value);
