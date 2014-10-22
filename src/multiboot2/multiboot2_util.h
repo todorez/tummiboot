@@ -44,6 +44,7 @@ typedef struct {
         CHAR16 *multiboot2;
         CHAR16 *acm;
         CHAR16 *options;
+        CHAR16 *mboot2_options;
         CHAR16 *splash;
         CHAR16 key;
         EFI_STATUS (*call)(void);
