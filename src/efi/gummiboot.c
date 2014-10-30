@@ -1771,11 +1771,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return err;
         }
 
-        /* export the device path this image is started from */
-        Print(L"Image base        : %lx\n", loaded_image->ImageBase);
-        Print(L"Image size        : %lx\n", loaded_image->ImageSize);
-        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-
         device_path = DevicePathFromHandle(loaded_image->DeviceHandle);
         if (device_path) {
                 CHAR16 *str;

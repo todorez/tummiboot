@@ -56,14 +56,6 @@ EFI_STATUS load_elf(CHAR8 *buf, void **entry)
 
         if ( ph->p_type == PT_LOAD ) {
 
-            Print(L"elf.c : %d: e_phnum %d.\n", __LINE__, elf->e_phnum);
-            Print(L"elf.c : %d: e_phoff %d.\n", __LINE__, elf->e_phoff);
-            Print(L"elf.c : %d: e_phentsize %d.\n", __LINE__, elf->e_phentsize);
-            Print(L"elf.c : %d: p_paddr %x.\n", __LINE__, ph->p_paddr);
-            Print(L"elf.c : %d: p_offset %x.\n", __LINE__, ph->p_offset);
-            Print(L"elf.c : %d: p_filesz %x.\n", __LINE__, ph->p_filesz);
-            Print(L"elf.c : %d: p_memsz %x.\n", __LINE__, ph->p_memsz);
-
             memcpy((void *)(uint64_t)ph->p_paddr, (void *)elf + ph->p_offset,
                    ph->p_filesz);
 
@@ -72,17 +64,7 @@ EFI_STATUS load_elf(CHAR8 *buf, void **entry)
         }
     }
 
-    Print(L"elf.c : %d: e_entry before %x.\n", __LINE__, *entry);
-    Print(L"elf.c : %d: e_entry before %x.\n", __LINE__, *(uint64_t*)*entry);
-
-
     *entry = (void*)(uint64_t)elf->e_entry;
-
-    Print(L"elf.c : %d: e_entry after %x.\n", __LINE__, *entry);
-    Print(L"elf.c : %d: e_entry after %x.\n", __LINE__, *(uint64_t*)(*entry));
-
-
-//    uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 
     return EFI_SUCCESS;
 }
@@ -131,13 +113,6 @@ void start_elf(void *buf, void* mbi2_buf){
     		uefi_call_wrapper(RT->ResetSystem, 4, EfiResetCold, EFI_SUCCESS,0,0);
 
     }
-
-    Print(L"elf.c : %d: MAGIC         %x.\n", __LINE__, MULTIBOOT2_BOOTLOADER_MAGIC);
-    Print(L"elf.c : %d: MBI2 ADDRESS  %x.\n", __LINE__, mbi2_buf);
-    Print(L"elf.c : %d: ENTRY ADDRESS %x.\n\n", __LINE__, buf);
-    Print(L"elf.c : %d: LAUNCHING\n", __LINE__);
-
-
 
     __asm__ __volatile__(
 	"lgdt %0					;" /* load GDT into GDTR*/

@@ -76,9 +76,6 @@ EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UIN
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		uefi_call_wrapper(file_handle->Close, 1, file_handle);
 		return EFI_LOAD_ERROR;
-	} else{
-		Print(L"multiboot2.c : %d Read file : %s bytes read : %d\n", __LINE__, file, *buf_len);
-//		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 	}
 
 	uefi_call_wrapper(file_handle->Close, 1, file_handle);
@@ -220,13 +217,9 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 	if (addr_tag){
 		Print(L"multiboot2.c : %d TODO - parse address tag. Feature not implemented yet.\n", __LINE__);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-	}else{
-		Print(L"multiboot2.c : %d Loading as ELF binary \n", __LINE__);
+		return EFI_SUCCESS;
+	}else
 		return EFI_LOAD_ELF ;
-	}
-
-	return EFI_SUCCESS;
-
 }
 
 /* Convert EFI memory map to E820 map for the operating system
@@ -244,10 +237,6 @@ static void add_memory_region (e820_entry_t *e820_map,
 	static unsigned int etype = -1;
 	static int merge = 0;
 
-	if (x == 0)
-		Print(L"multiboot2.c : %d : %3s %4s %16s/%12s/%s\n",
-			__LINE__, L"idx", L" ", L"start", L"size", L"type");
-
 	/* merge adjacent regions of same type */
 	if ((x > 0) && e820_map[x-1].start + e820_map[x-1].size == start
 	    && e820_map[x-1].type == type) {
@@ -264,12 +253,8 @@ static void add_memory_region (e820_entry_t *e820_map,
 		e820_map[x].size = size;
 		e820_map[x].type = type;
 		(*e820_count)++;
-		if (merge)
-			Print(L"multiboot2.c : %d  %3d ==>  %016llx/%012lx/%d (%d)\n",
-				__LINE__, x-1, estart, esize, etype, merge);
 		merge=0;
-		Print(L"multiboot2.c : %d %3d add  %016llx/%012lx/%d\n",
-			__LINE__, x, start, size, type);
+
 		return;
 	}
 	/* different type means another region didn't fit */
@@ -418,9 +403,6 @@ EFI_STATUS get_efi_mmap(){
 	efi_mmap.mapkey = mapkey ;
 	efi_mmap.desc_size = desc_size ;
 	efi_mmap.desc_ver = desc_ver ;
-
-	Print(L"multiboot2.c : %d efi_mmap_size : %d desc_size : %d.\n", __LINE__, mmap_size, desc_size );
-//	uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 
 	/* convert EFI mmap to E820 mmap */
 	convert_mmap_efi_e820(&efi_mmap) ;
@@ -583,23 +565,6 @@ EFI_STATUS mbi2_populate_framebuffer(void** mbi2_buf){
 	fb_tag->framebuffer_green_mask_size = rgbr_mask_sz_fld_pos.g_mask_sz;
 	fb_tag->framebuffer_blue_field_position = rgbr_mask_sz_fld_pos.b_fld_pos;
 	fb_tag->framebuffer_blue_mask_size = rgbr_mask_sz_fld_pos.b_mask_sz;
-
-	/* TODO - DEBUG framebuffer tag*/
-	Print(L"multiboot2.c : %d fb type %d \n", __LINE__, fb_tag->common.type) ;
-	Print(L"multiboot2.c : %d fb size %d \n", __LINE__, fb_tag->common.size) ;
-	Print(L"multiboot2.c : %d fb base %x \n", __LINE__, fb_tag->common.framebuffer_addr) ;
-	Print(L"multiboot2.c : %d fb width %d \n", __LINE__, fb_tag->common.framebuffer_width) ;
-	Print(L"multiboot2.c : %d fb height %d \n", __LINE__, fb_tag->common.framebuffer_height) ;
-	Print(L"multiboot2.c : %d fb bpp %d \n", __LINE__, fb_tag->common.framebuffer_bpp) ;
-	Print(L"multiboot2.c : %d fb pitch %d \n", __LINE__, fb_tag->common.framebuffer_pitch) ;
-	Print(L"multiboot2.c : %d fb fb type%d \n", __LINE__, fb_tag->common.framebuffer_type) ;
-
-	Print(L"multiboot2.c : %d fb r_fld_pos %d \n", __LINE__, fb_tag->framebuffer_red_field_position) ;
-	Print(L"multiboot2.c : %d fb r_mask_sz %d \n", __LINE__, fb_tag->framebuffer_red_mask_size) ;
-	Print(L"multiboot2.c : %d fb g_fld_pos %d \n", __LINE__, fb_tag->framebuffer_green_field_position) ;
-	Print(L"multiboot2.c : %d fb g_mask_sz %d \n", __LINE__, fb_tag->framebuffer_green_mask_size) ;
-	Print(L"multiboot2.c : %d fb b_fld_pos %d \n", __LINE__, fb_tag->framebuffer_blue_field_position) ;
-	Print(L"multiboot2.c : %d fb b_mask_sz %d \n", __LINE__, fb_tag->framebuffer_blue_mask_size) ;
 
 	*mbi2_buf += ALIGN_UP(fb_tag->common.size, MULTIBOOT_TAG_ALIGN) ;
 
@@ -804,9 +769,6 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 		return EFI_LOAD_ERROR ;
 	}
 	else{
-		Print(L"multiboot2.c : %d Populating mbi2.\n", __LINE__);
-//		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-
 		tmp = *mbi2_buf ;
 
 		/******************** FIXED PART ********************/
@@ -849,13 +811,6 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 		char16_to_char8(entry->options, (CHAR8 *) kernel_mod_tag->cmdline, StrLen(entry->options)) ;
 		tmp += ALIGN_UP (kernel_mod_tag->size, MULTIBOOT_TAG_ALIGN) ;
 
-		Print(L"multiboot2.c : %d Kernel module tag type %d.\n", __LINE__, kernel_mod_tag->type);
-		Print(L"multiboot2.c : %d Kernel module tag size %d.\n", __LINE__, kernel_mod_tag->size);
-		Print(L"multiboot2.c : %d Kernel module tag start %x.\n", __LINE__, kernel_mod_tag->mod_start);
-		Print(L"multiboot2.c : %d Kernel module tag end %x.\n", __LINE__, kernel_mod_tag->mod_end);
-		Print(L"multiboot2.c : %d Kernel module tag cmdline %a.\n", __LINE__, kernel_mod_tag->cmdline);
-		uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
-
 		err = copy_file_buf(parent_image, entry->initrd, &initrd_buf, &initrd_sz) ;
 		if (EFI_ERROR(err) || !initrd_buf || !initrd_sz){
 			Print(L"multiboot2.c : %d Error loading initrd %d.\n", __LINE__, err);
@@ -871,13 +826,6 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 		initrd_mod_tag->cmdline[0] = '\0' ;
 		tmp += ALIGN_UP (initrd_mod_tag->size, MULTIBOOT_TAG_ALIGN) ;
 
-		Print(L"multiboot2.c : %d initrd module tag type %d.\n", __LINE__, initrd_mod_tag->type);
-		Print(L"multiboot2.c : %d initrd module tag size %d.\n", __LINE__, initrd_mod_tag->size);
-		Print(L"multiboot2.c : %d initrd module tag start %x.\n", __LINE__, initrd_mod_tag->mod_start);
-		Print(L"multiboot2.c : %d initrd module tag end %x.\n", __LINE__, initrd_mod_tag->mod_end);
-		uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
-
-
 		err = copy_file_buf(parent_image, entry->acm, &acm_buf, &acm_sz) ;
 		if (EFI_ERROR(err) || !acm_buf || !acm_sz){
 			Print(L"multiboot2.c : %d Error loading acm %d.\n", __LINE__, err);
@@ -885,7 +833,6 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 			return EFI_LOAD_ERROR ;
 		}
 
-		Print(L"multiboot2.c : %d ACM : %s\n", __LINE__,entry->acm ) ;
 		struct multiboot_tag_module *acm_mod_tag = (struct multiboot_tag_module *) tmp;
 		acm_mod_tag->type = MULTIBOOT_TAG_TYPE_MODULE;
 		acm_mod_tag->size = sizeof (struct multiboot_tag_module)+ 1;
@@ -903,9 +850,6 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 		basic_meminfo_tag->mem_upper = get_e820_upper_mem() / 1024 ;
 		tmp += ALIGN_UP (basic_meminfo_tag->size, MULTIBOOT_TAG_ALIGN) ;
 
-		Print(L"multiboot2.c : %d mem_lower : %d mem_upper : %d\n", __LINE__,
-				basic_meminfo_tag->mem_lower, basic_meminfo_tag->mem_upper );
-
 		/* boot device - BIOS */
 
 		/* ELF symbols - not used by tboot */
@@ -921,17 +865,12 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 
 		e820_entry_t *e820_map = (e820_entry_t *)g_e820_mmap;
 
-		Print(L"E820 memory map \n");
 		for(i=0; i < e820_count; i++){
 			mmap_entry[i].addr = e820_map[i].start;
 			mmap_entry[i].len = e820_map[i].size;
 			mmap_entry[i].type = e820_map[i].type;
-
-			Print(L"addr : %x - len : %x - type : %d\n", mmap_entry[i].addr, mmap_entry[i].len, mmap_entry[i].type );
 		}
-//		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 		tmp += ALIGN_UP (e820_mmap_tag->size, MULTIBOOT_TAG_ALIGN);
-
 
 		/* framebuffer info */
 		err = mbi2_populate_framebuffer(&tmp) ;
@@ -949,10 +888,6 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 		efi64_tag->size = sizeof (struct multiboot_tag_efi64);
 		efi64_tag->pointer = (uint64_t)ST;
 		tmp += ALIGN_UP (efi64_tag->size, MULTIBOOT_TAG_ALIGN) ;
-
-		Print(L"multiboot2.c : %d EFI systable : %x.\n", __LINE__, ST);
-		uefi_call_wrapper(BS->Stall, 1, 5 * 1000 * 1000);
-
 
 		/* ACPI old */
 		if (acpi1_rsdp){
