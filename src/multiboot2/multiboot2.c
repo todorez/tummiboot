@@ -21,12 +21,12 @@ CHAR8 * char16_to_char8 (IN CHAR16 *src, OUT CHAR8 *dest, IN UINT16 size){
 }
 
 EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UINTN *buf_len ){
-    EFI_STATUS err;
+	EFI_STATUS err;
 	EFI_LOADED_IMAGE *loaded_image;
 	EFI_FILE_HANDLE root_dir ;
-    EFI_FILE_HANDLE file_handle;
-    UINTN tmp_sz ;
-    EFI_FILE_INFO tmp_buf;
+	EFI_FILE_HANDLE file_handle;
+	UINTN tmp_sz ;
+	EFI_FILE_INFO tmp_buf;
 
 	err = uefi_call_wrapper(BS->OpenProtocol, 6, parent_image, &LoadedImageProtocol, (void **)&loaded_image,
 			parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -123,8 +123,9 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 	for (tag = (mboot_hdr_tag_p) (hdr + 1);
 	       tag->type != MULTIBOOT_TAG_TYPE_END;
 	       tag = (mboot_hdr_tag_p) ((uint32_t *) tag
-	    		   + ALIGN_UP (tag->size, 2))){
+			+ ALIGN_UP (tag->size, 2))){
 
+		/* none of these are populated by tboot - TODO - not implemented for now */
 		switch(tag->type){
 			case MULTIBOOT_HEADER_TAG_INFORMATION_REQUEST:
 			{
@@ -135,35 +136,33 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 					break;
 
 				for (i = 0; i < (req_tag->size - sizeof (req_tag)) / sizeof (req_tag->requests[0]); i++)
+					switch (req_tag->requests[i]){
+						case MULTIBOOT_TAG_TYPE_END:
+						case MULTIBOOT_TAG_TYPE_CMDLINE:
+						case MULTIBOOT_TAG_TYPE_BOOT_LOADER_NAME:
+						case MULTIBOOT_TAG_TYPE_MODULE:
+						case MULTIBOOT_TAG_TYPE_BASIC_MEMINFO:
+						case MULTIBOOT_TAG_TYPE_BOOTDEV:
+						case MULTIBOOT_TAG_TYPE_MMAP:
+						case MULTIBOOT_TAG_TYPE_FRAMEBUFFER:
+						case MULTIBOOT_TAG_TYPE_VBE:
+						case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
+						case MULTIBOOT_TAG_TYPE_APM:
+						case MULTIBOOT_TAG_TYPE_EFI32:
+						case MULTIBOOT_TAG_TYPE_EFI64:
+						case MULTIBOOT_TAG_TYPE_ACPI_OLD:
+						case MULTIBOOT_TAG_TYPE_ACPI_NEW:
+						case MULTIBOOT_TAG_TYPE_NETWORK:
+						case MULTIBOOT_TAG_TYPE_EFI_MMAP:
+						case MULTIBOOT_TAG_TYPE_EFI_BS:
+						break;
 
-				switch (req_tag->requests[i])
-				{
-					case MULTIBOOT_TAG_TYPE_END:
-					case MULTIBOOT_TAG_TYPE_CMDLINE:
-					case MULTIBOOT_TAG_TYPE_BOOT_LOADER_NAME:
-					case MULTIBOOT_TAG_TYPE_MODULE:
-				    	case MULTIBOOT_TAG_TYPE_BASIC_MEMINFO:
-				    	case MULTIBOOT_TAG_TYPE_BOOTDEV:
-				    	case MULTIBOOT_TAG_TYPE_MMAP:
-				    	case MULTIBOOT_TAG_TYPE_FRAMEBUFFER:
-				    	case MULTIBOOT_TAG_TYPE_VBE:
-				    	case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
-				    	case MULTIBOOT_TAG_TYPE_APM:
-				    	case MULTIBOOT_TAG_TYPE_EFI32:
-				    	case MULTIBOOT_TAG_TYPE_EFI64:
-				    	case MULTIBOOT_TAG_TYPE_ACPI_OLD:
-				    	case MULTIBOOT_TAG_TYPE_ACPI_NEW:
-				    	case MULTIBOOT_TAG_TYPE_NETWORK:
-				    	case MULTIBOOT_TAG_TYPE_EFI_MMAP:
-				    	case MULTIBOOT_TAG_TYPE_EFI_BS:
-				    	break;
-
-				    default:
-				    	Print(L"multiboot2.c : %d Unsupported information tag: 0x%x",
-				    			__LINE__, req_tag->requests[i]);
-				    	uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-				    	return EFI_LOAD_ERROR;
-				}
+						default:
+						Print(L"multiboot2.c : %d Unsupported information tag: 0x%x",
+							__LINE__, req_tag->requests[i]);
+						uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+						return EFI_LOAD_ERROR;
+					}
 				break;
 			}
 
@@ -173,7 +172,6 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 
 			case MULTIBOOT_HEADER_TAG_ENTRY_ADDRESS:
 				has_entry_addr_tag = true ;
-				//entry_addr_tag = ((mboot_hdr_tag_entry_addr_p) tag)->entry_addr;
 				break;
 
 			case MULTIBOOT_HEADER_TAG_CONSOLE_FLAGS:
@@ -182,12 +180,10 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 					supported_consoles &= ~MULTIBOOT_OS_CONSOLE_EGA_TEXT;
 				if (((struct multiboot_header_tag_console_flags *) tag)->console_flags
 						& MULTIBOOT_CONSOLE_FLAGS_CONSOLE_REQUIRED)
-					//console_required = true;
 
 				break;
 
 			case MULTIBOOT_HEADER_TAG_FRAMEBUFFER:
-				//fbtag = (mboot_hdr_tag_fbuf_p) tag;
 				supported_consoles |= MULTIBOOT_CONSOLE_FRAMEBUFFER;
 				break;
 
@@ -200,9 +196,9 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 
 			default:
 		        if (! (tag->flags & MULTIBOOT_HEADER_TAG_OPTIONAL)){
-		        	Print(L"multiboot2.c : %d Unsupported tag: 0x%x",__LINE__, tag->type);
-		        	uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-		        	return EFI_LOAD_ERROR;
+				Print(L"multiboot2.c : %d Unsupported tag: 0x%x",__LINE__, tag->type);
+				uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+				return EFI_LOAD_ERROR;
 		        }
 		        break ;
 		}
