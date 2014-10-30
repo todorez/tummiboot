@@ -7,20 +7,20 @@
 #define EFI_LOAD_ELF			50
 
 #define E820_MAX_ENTRIES		128
-#define E820_RAM        1
-#define E820_RESERVED   2
-#define E820_ACPI       3
-#define E820_NVS        4
-#define E820_EXEC_CODE  5
+#define E820_RAM        		1
+#define E820_RESERVED   		2
+#define E820_ACPI       		3
+#define E820_NVS        		4
+#define E820_EXEC_CODE  		5
 
 
-#define MULTIBOOT_OS_CONSOLE_EGA_TEXT 1
-#define MULTIBOOT_CONSOLE_FRAMEBUFFER 2
+#define MULTIBOOT_OS_CONSOLE_EGA_TEXT 	1
+#define MULTIBOOT_CONSOLE_FRAMEBUFFER 	2
 
-#define cs_sel      1<<3
-#define ds_sel      2<<3
-#define gdt_cs_flags_limit  0x9a /* present, system, DPL-0, execute/read     */
-#define gdt_ds_flags_limit  0x92 /* present, system, DPL-0, read/write       */
+#define cs_sel      			1<<3
+#define ds_sel      			2<<3
+#define gdt_cs_flags_limit  		0x9a /* present, system, DPL-0, execute/read     */
+#define gdt_ds_flags_limit  		0x92 /* present, system, DPL-0, read/write       */
 
 #define ALIGN_UP(addr, align) \
         ((addr + (typeof (addr)) align - 1) & ~((typeof (addr)) align - 1))
@@ -69,11 +69,11 @@ typedef struct {
 } Config;
 
 typedef struct {
-  UINTN                 mmap_size;
-  EFI_MEMORY_DESCRIPTOR *mmap;
-  UINTN                 mapkey;
-  UINTN                 desc_size;
-  UINT32                desc_ver;
+	UINTN                 mmap_size;
+	EFI_MEMORY_DESCRIPTOR *mmap;
+	UINTN                 mapkey;
+	UINTN                 desc_size;
+	UINT32                desc_ver;
 }efi_mmap_t;
 
 typedef struct{
@@ -83,38 +83,35 @@ typedef struct{
 } __attribute__((packed)) e820_entry_t;
 
 typedef struct{
-	  unsigned int r_mask_sz;
-	  unsigned int r_fld_pos;
-	  unsigned int g_mask_sz;
-	  unsigned int g_fld_pos;
-	  unsigned int b_mask_sz;
-	  unsigned int b_fld_pos;
-	  unsigned int res_mask_sz;
-	  unsigned int res_fld_pos;
-
+	unsigned int r_mask_sz;
+	unsigned int r_fld_pos;
+	unsigned int g_mask_sz;
+	unsigned int g_fld_pos;
+	unsigned int b_mask_sz;
+	unsigned int b_fld_pos;
+	unsigned int res_mask_sz;
+	unsigned int res_fld_pos;
 }fb_rgbr_mask_field_t ;
 
 struct seg_desc {
+	uint16_t limit_15_0;
+	uint16_t base_addr_15_0;
+	uint8_t base_addr_23_16;
 
-    uint16_t limit_15_0;
-    uint16_t base_addr_15_0;
-    uint8_t base_addr_23_16;
+	/* 4 bits flags + 4 bits limit*/
+	uint8_t flags_lim;
 
-    /* 4 bits flags + 4 bits limit*/
-    uint8_t flags_lim;
+	/* Bits 16-19 in the segment limiter. */
+	uint8_t limit_19_16:4;
 
-    /* Bits 16-19 in the segment limiter. */
-    uint8_t limit_19_16:4;
+	uint8_t u:1;
+	uint8_t x:1;
+	/*  D=0 16-bit segment, D=1, 32-bit */
+	uint8_t d:1;
 
-    uint8_t u:1;
-    uint8_t x:1;
-
-    /*  D=0 16-bit segment, D=1, 32-bit */
-    uint8_t d:1;
-
-    /* Granularity G=0 1 byte, G=1 4KB */
-    uint8_t g:1;
-    uint8_t base_addr_31_24;
+	/* Granularity G=0 1 byte, G=1 4KB */
+	uint8_t g:1;
+	uint8_t base_addr_31_24;
 } __attribute__((__packed__));
 
 /* Build a 4KB granular segment descriptor. */
