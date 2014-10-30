@@ -40,13 +40,12 @@ bin_PROGRAMS = gummiboot
 gummiboot_SOURCES = \
 	src/setup/setup.c \
 	src/setup/efivars.c \
-	src/setup/efivars.h 
+	src/setup/efivars.h
 
 gummiboot_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DMACHINE_TYPE_NAME=\"$(MACHINE_TYPE_NAME)\" \
-	-DGUMMIBOOTLIBDIR=\"$(gummibootlibdir)\"	
-
+	-DGUMMIBOOTLIBDIR=\"$(gummibootlibdir)\"
 
 gummiboot_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -83,7 +82,7 @@ efi_sources = \
 	src/efi/gummiboot.c \
 	src/multiboot2/multiboot2.c	\
 	src/elf/elf.c	\
-	src/elf/memcpy.c	
+	src/elf/memcpy.c
 
 efi_headers = \
 	src/efi/util.h \
@@ -92,7 +91,7 @@ efi_headers = \
 	src/multiboot2/multiboot2.h	\
 	src/multiboot2/multiboot2_util.h	\
 	src/multiboot2/acpi.h	\
-	src/elf/elf.h	
+	src/elf/elf.h
 
 efi_cppflags = \
 	$(EFI_CPPFLAGS) \
@@ -101,7 +100,7 @@ efi_cppflags = \
 	-I$(EFI_INC_DIR)/efi/$(ARCH) \
 	-DMACHINE_TYPE_NAME=\"$(MACHINE_TYPE_NAME)\" \
 	-I$(top_builddir)/src/multiboot2 \
-	-I$(top_builddir)/src/elf 
+	-I$(top_builddir)/src/elf
 
 efi_cflags = \
 	$(EFI_CFLAGS) \
