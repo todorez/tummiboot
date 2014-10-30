@@ -694,8 +694,8 @@ static UINT32 get_mbi2_size (const ConfigEntry *entry)
 	+ (sizeof (struct multiboot_tag_string)
 	       + ALIGN_UP (sizeof (PACKAGE_STRING), MULTIBOOT_TAG_ALIGN))
 
-    /* modules - kernel + initrd + acm + 3 terminators*/
-	+ ALIGN_UP (3 * (sizeof (struct multiboot_tag_module)) + 3,
+    /* modules - kernel + initrd + acm + kernel cmd line + 2 terminators*/
+	+ ALIGN_UP (3 * (sizeof (struct multiboot_tag_module)) + StrLen(entry->options) * sizeof(CHAR8) + 2,
 			MULTIBOOT_TAG_ALIGN)
 
     /* memory info */
@@ -843,11 +843,18 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 
 		struct multiboot_tag_module *kernel_mod_tag = (struct multiboot_tag_module *) tmp;
 		kernel_mod_tag->type = MULTIBOOT_TAG_TYPE_MODULE;
-		kernel_mod_tag->size = sizeof (struct multiboot_tag_module) + 1;
+		kernel_mod_tag->size = sizeof (struct multiboot_tag_module) + (StrLen(entry->options) * sizeof(CHAR8));
 		kernel_mod_tag->mod_start = (uint64_t)kernel_buf;
 		kernel_mod_tag->mod_end = kernel_mod_tag->mod_start + kern_sz;
-		kernel_mod_tag->cmdline[0] = '\0';
+		char16_to_char8(entry->options, (CHAR8 *) kernel_mod_tag->cmdline, StrLen(entry->options)) ;
 		tmp += ALIGN_UP (kernel_mod_tag->size, MULTIBOOT_TAG_ALIGN) ;
+
+		Print(L"multiboot2.c : %d Kernel module tag type %d.\n", __LINE__, kernel_mod_tag->type);
+		Print(L"multiboot2.c : %d Kernel module tag size %d.\n", __LINE__, kernel_mod_tag->size);
+		Print(L"multiboot2.c : %d Kernel module tag start %x.\n", __LINE__, kernel_mod_tag->mod_start);
+		Print(L"multiboot2.c : %d Kernel module tag end %x.\n", __LINE__, kernel_mod_tag->mod_end);
+		Print(L"multiboot2.c : %d Kernel module tag cmdline %a.\n", __LINE__, kernel_mod_tag->cmdline);
+		uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
 
 		err = copy_file_buf(parent_image, entry->initrd, &initrd_buf, &initrd_sz) ;
 		if (EFI_ERROR(err) || !initrd_buf || !initrd_sz){
@@ -863,6 +870,12 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 		initrd_mod_tag->mod_end = initrd_mod_tag->mod_start + initrd_sz;
 		initrd_mod_tag->cmdline[0] = '\0' ;
 		tmp += ALIGN_UP (initrd_mod_tag->size, MULTIBOOT_TAG_ALIGN) ;
+
+		Print(L"multiboot2.c : %d initrd module tag type %d.\n", __LINE__, initrd_mod_tag->type);
+		Print(L"multiboot2.c : %d initrd module tag size %d.\n", __LINE__, initrd_mod_tag->size);
+		Print(L"multiboot2.c : %d initrd module tag start %x.\n", __LINE__, initrd_mod_tag->mod_start);
+		Print(L"multiboot2.c : %d initrd module tag end %x.\n", __LINE__, initrd_mod_tag->mod_end);
+		uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
 
 
 		err = copy_file_buf(parent_image, entry->acm, &acm_buf, &acm_sz) ;
@@ -936,6 +949,10 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry, void
 		efi64_tag->size = sizeof (struct multiboot_tag_efi64);
 		efi64_tag->pointer = (uint64_t)ST;
 		tmp += ALIGN_UP (efi64_tag->size, MULTIBOOT_TAG_ALIGN) ;
+
+		Print(L"multiboot2.c : %d EFI systable : %x.\n", __LINE__, ST);
+		uefi_call_wrapper(BS->Stall, 1, 5 * 1000 * 1000);
+
 
 		/* ACPI old */
 		if (acpi1_rsdp){
