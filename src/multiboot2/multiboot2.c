@@ -167,6 +167,7 @@ parse_header (CHAR8 * buf, UINTN len) {
   mboot_hdr_p hdr;
   mboot_hdr_tag_p tag;
   mboot_hdr_tag_addr_p addr_tag = NULL;
+  int hdr_valid;
 
   int supported_consoles = MULTIBOOT_OS_CONSOLE_EGA_TEXT;
 
@@ -174,21 +175,23 @@ parse_header (CHAR8 * buf, UINTN len) {
   for (hdr = (mboot_hdr_p) buf;
        ((char *) hdr <= (char *) buf + len - 16) || (hdr = 0);
        hdr = (mboot_hdr_p) ((uint32_t *) hdr + 2)) {
+    hdr_valid = 0;
     if (hdr->magic == MULTIBOOT2_HEADER_MAGIC) {
-      if (!
-	  (hdr->magic + hdr->architecture + hdr->header_length +
-	   hdr->checksum)) {
-	if (hdr->architecture != MULTIBOOT_ARCHITECTURE_I386) {
-	  print_msg ("multiboot2.c", __LINE__, ERR_MBOOT_ARCH, 'o');
-	}
-	break;
+      if (!(hdr->magic + hdr->architecture + hdr->header_length +
+        hdr->checksum)) {
+          if (hdr->architecture != MULTIBOOT_ARCHITECTURE_I386)
+            print_msg ("multiboot2.c", __LINE__, ERR_MBOOT_ARCH, 'o');
+          else {
+            hdr_valid = 1;	/* valid header found, bail out */
+            break;
+          }
       }
       else
-	print_msg ("multiboot2.c", __LINE__, ERR_MBOOT_CSUM, 'o');
+        print_msg ("multiboot2.c", __LINE__, ERR_MBOOT_CSUM, 'o');
     }
   }
 
-  if (hdr == 0) {
+  if (!hdr || !hdr_valid) {
     print_msg ("multiboot2.c", __LINE__, ERR_MBOOT_HDR, 'o');
     return EFI_LOAD_ERROR;
   }
@@ -208,7 +211,8 @@ parse_header (CHAR8 * buf, UINTN len) {
 	  break;
 
 	for (i = 0; i < (req_tag->size -
-	      sizeof (req_tag)) / sizeof (req_tag->requests[0]); i++)
+			 sizeof (req_tag)) / sizeof (req_tag->requests[0]);
+	     i++)
 	  switch (req_tag->requests[i]) {
 	  case MULTIBOOT_TAG_TYPE_END:
 	  case MULTIBOOT_TAG_TYPE_CMDLINE:
@@ -467,24 +471,24 @@ gop_get_bpp (EFI_GRAPHICS_OUTPUT_MODE_INFORMATION * mode_info) {
     return 32;
 
   case PixelBitMask:
-    if ((mode_info->PixelInformation.RedMask & mode_info->PixelInformation.
-	 GreenMask)
-	|| (mode_info->PixelInformation.RedMask & mode_info->PixelInformation.
-	    BlueMask)
-	|| (mode_info->PixelInformation.GreenMask & mode_info->
+    if ((mode_info->PixelInformation.RedMask & mode_info->
+	 PixelInformation.GreenMask)
+	|| (mode_info->PixelInformation.RedMask & mode_info->
 	    PixelInformation.BlueMask)
-	|| (mode_info->PixelInformation.RedMask & mode_info->PixelInformation.
-	    ReservedMask)
-	|| (mode_info->PixelInformation.GreenMask & mode_info->
+	|| (mode_info->PixelInformation.
+	    GreenMask & mode_info->PixelInformation.BlueMask)
+	|| (mode_info->PixelInformation.RedMask & mode_info->
 	    PixelInformation.ReservedMask)
-	|| (mode_info->PixelInformation.BlueMask & mode_info->
-	    PixelInformation.ReservedMask))
+	|| (mode_info->PixelInformation.
+	    GreenMask & mode_info->PixelInformation.ReservedMask)
+	|| (mode_info->PixelInformation.
+	    BlueMask & mode_info->PixelInformation.ReservedMask))
       return 0;
 
     total_mask =
-      mode_info->PixelInformation.RedMask | mode_info->PixelInformation.
-      GreenMask | mode_info->PixelInformation.BlueMask | mode_info->
-      PixelInformation.ReservedMask;
+      mode_info->PixelInformation.RedMask | mode_info->
+      PixelInformation.GreenMask | mode_info->PixelInformation.
+      BlueMask | mode_info->PixelInformation.ReservedMask;
 
     for (i = 31; i >= 0; i--)
       if (total_mask & (1 << i))
