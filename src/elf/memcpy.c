@@ -38,7 +38,7 @@
  * sizeof(word) MUST BE A POWER OF TWO
  * SO THAT wmask BELOW IS ALL ONES
  */
-typedef	int	word;		/* "word" used for optimal copy speed */
+typedef int word;		/* "word" used for optimal copy speed */
 
 #define	wsize	sizeof(word)
 #define wmask	(wsize - 1)
@@ -48,96 +48,98 @@ typedef	int	word;		/* "word" used for optimal copy speed */
  * This is the routine that actually implements
  * (the portable versions of) bcopy, memcpy, and memmove.
  */
-void *memcpy(void *dst0, const void *src0, unsigned long length)
-{
-	char		*dst;
-	const char	*src;
-	unsigned long		t;
+void *
+memcpy (void *dst0, const void *src0, unsigned long length) {
+  char *dst;
+  const char *src;
+  unsigned long t;
 
-	dst = dst0;
-	src = src0;
+  dst = dst0;
+  src = src0;
 
-	if (length == 0 || dst == src) {	/* nothing to do */
-		goto done;
-	}
+  if (length == 0 || dst == src) {	/* nothing to do */
+    goto done;
+  }
 
-	/*
-	 * Macros: loop-t-times; and loop-t-times, t>0
-	 */
+  /*
+   * Macros: loop-t-times; and loop-t-times, t>0
+   */
 #define	TLOOP(s) if (t) TLOOP1(s)
 #define	TLOOP1(s) do { s; } while (--t)
 
-	if ((unsigned long)dst < (unsigned long)src) {
-		/*
-		 * Copy forward.
-		 */
-		t = (long)src;
+  if ((unsigned long) dst < (unsigned long) src) {
+    /*
+     * Copy forward.
+     */
+    t = (long) src;
 
-		if ((t | (long)dst) & wmask) {
-			/*
-			 * Try to align operands.  This cannot be done
-			 * unless the low bits match.
-			 */
-			if ((t ^ (long)dst) & wmask || length < wsize) {
-				t = length;
-			} else {
-				t = wsize - (t & wmask);
-			}
+    if ((t | (long) dst) & wmask) {
+      /*
+       * Try to align operands.  This cannot be done
+       * unless the low bits match.
+       */
+      if ((t ^ (long) dst) & wmask || length < wsize) {
+	t = length;
+      }
+      else {
+	t = wsize - (t & wmask);
+      }
 
-			length -= t;
-			TLOOP1(*dst++ = *src++);
-		}
-		/*
-		 * Copy whole words, then mop up any trailing bytes.
-		 */
-		t = length / wsize;
-		TLOOP(*(word *)dst = *(const word *)src; src += wsize;
-		    dst += wsize);
-		t = length & wmask;
-		TLOOP(*dst++ = *src++);
-	} else {
-		/*
-		 * Copy backwards.  Otherwise essentially the same.
-		 * Alignment works as before, except that it takes
-		 * (t&wmask) bytes to align, not wsize-(t&wmask).
-		 */
-		src += length;
-		dst += length;
-		t = (long)src;
+      length -= t;
+      TLOOP1 (*dst++ = *src++);
+    }
+    /*
+     * Copy whole words, then mop up any trailing bytes.
+     */
+    t = length / wsize;
+    TLOOP (*(word *) dst = *(const word *) src;
+	   src += wsize; dst += wsize);
+    t = length & wmask;
+    TLOOP (*dst++ = *src++);
+  }
+  else {
+    /*
+     * Copy backwards.  Otherwise essentially the same.
+     * Alignment works as before, except that it takes
+     * (t&wmask) bytes to align, not wsize-(t&wmask).
+     */
+    src += length;
+    dst += length;
+    t = (long) src;
 
-		if ((t | (long)dst) & wmask) {
-			if ((t ^ (long)dst) & wmask || length <= wsize) {
-				t = length;
-			} else {
-				t &= wmask;
-			}
+    if ((t | (long) dst) & wmask) {
+      if ((t ^ (long) dst) & wmask || length <= wsize) {
+	t = length;
+      }
+      else {
+	t &= wmask;
+      }
 
-			length -= t;
-			TLOOP1(*--dst = *--src);
-		}
-		t = length / wsize;
-		TLOOP(src -= wsize; dst -= wsize;
-		    *(word *)dst = *(const word *)src);
-		t = length & wmask;
-		TLOOP(*--dst = *--src);
-	}
+      length -= t;
+      TLOOP1 (*--dst = *--src);
+    }
+    t = length / wsize;
+    TLOOP (src -= wsize;
+	   dst -= wsize; *(word *) dst = *(const word *) src);
+    t = length & wmask;
+    TLOOP (*--dst = *--src);
+  }
 done:
-	return (dst0);
+  return (dst0);
 }
 
-int memcmp (const void *s1, const void *s2, unsigned n)
-{
+int
+memcmp (const void *s1, const void *s2, unsigned n) {
   const unsigned char *t1 = s1;
   const unsigned char *t2 = s2;
 
-  while (n--)
-    {
-      if (*t1 != *t2)
-	return (int) *t1 - (int) *t2;
+  while (n--) {
+    if (*t1 != *t2)
+      return (int) *t1 - (int) *t2;
 
-      t1++;
-      t2++;
-    }
+    t1++;
+    t2++;
+  }
 
   return 0;
 }
