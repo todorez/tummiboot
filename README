@@ -1,14 +1,35 @@
-gummiboot Simple UEFI boot manager
+tummiboot Simple UEFI boot manager(gummiboot) with Trusted Boot (tboot) support
 
-gummiboot executes EFI images. The default entry is selected by a configured
-pattern (glob) or an on-screen menu.
+This is the new functionality that tummiboot adds to the gummiboot bootloader:
 
-gummiboot operates on the EFI System Partition (ESP) only. Configuration
-file fragments, kernels, initrds, other EFI images need to reside on the
+- trusted boot support via the tboot module and Intel's Trusted
+Execution Technology (TXT)
+- partial multiboot2 support for passing data to the trusted boot module
+- booting non EFI_STUB kernels via tboot and the Linux/x86 boot protocol
+- no impact on the existing gummiboot functionality
+
+A sample configuration file entry for tboot can be found below:
+
+title Trusted Boot(tboot)
+multiboot2              /tboot
+multiboot2_options      /tboot loglvl=all logging=serial,vga,memory
+vga_delay=1 serial=115200,8n1,0x3f8
+acm                     /acm
+linux                   /vmlinuz
+initrd                  /initrd
+options                 root=UUID=c1f42944-05fe-40eb-99b6-4b79161113b5 nomodeset
+console=tty0 console=ttyS0,115200n8
+
+By default tummiboot executes only EFI images unless trusted boot is requred.
+The default entry is selected by a configured pattern (glob) or an on-screen menu.
+
+tummiboot operates on the EFI System Partition (ESP) only. Configuration
+file fragments, kernels, initrds, tboot and other EFI images need to reside on the
 ESP. Linux kernels must be built with CONFIG_EFI_STUB to be able to be
-directly executed as an EFI image.
+directly executed as an EFI image or alternatively they can be booted with tboot
+over the Linux/x86 boot protocol.
 
-gummiboot reads simple and entirely generic configurion files; one file
+tummiboot reads simple and entirely generic configurion files; one file
 per boot entry to select from.
 
 Pressing Space (or most other) keys during bootup will show an on-screen
@@ -18,9 +39,14 @@ selected entry loads and starts the EFI image.
 If no timeout is configured and no key pressed during bootup, the default
 entry is booted right away.
 
-Further documentation is available in the gummiboot wiki at:
+Further Trusted Boot (tboot) documentation is available at:
+  http://sourceforge.net/projects/tboot/
+
+Further bootloader documentation is available in the gummiboot wiki at:
   http://freedesktop.org/wiki/Software/gummiboot
 
 Links:
+  http://www.intel.co.uk/content/www/uk/en/architecture-and-technology/trusted-execution-technology/txt-enabling-guide.html
+  http://www.trustedcomputinggroup.org/resources/trusted_platform_module_tpm_summary
   http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec
   http://www.freedesktop.org/software/systemd/man/kernel-install.html
