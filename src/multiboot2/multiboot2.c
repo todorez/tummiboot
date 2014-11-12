@@ -103,7 +103,7 @@ copy_file_buf (EFI_HANDLE parent_image, CHAR16 * file, CHAR8 ** buf,
   EFI_FILE_HANDLE root_dir;
   EFI_FILE_HANDLE file_handle;
   UINTN tmp_sz;
-  EFI_FILE_INFO tmp_buf;
+  VOID *tmp_buf;
 
   err =
     uefi_call_wrapper (BS->OpenProtocol, 6, parent_image,
@@ -133,9 +133,10 @@ copy_file_buf (EFI_HANDLE parent_image, CHAR16 * file, CHAR8 ** buf,
   if (*buf_len == 0) {
 
     tmp_sz = SIZE_OF_EFI_FILE_INFO + (StrLen (file) * sizeof (CHAR16));
+    tmp_buf = AllocateZeroPool (tmp_sz);
     err =
       uefi_call_wrapper (file_handle->GetInfo, 4, file_handle,
-			 &GenericFileInfo, &tmp_sz, &tmp_buf);
+			 &GenericFileInfo, &tmp_sz, tmp_buf);
 
     if (EFI_ERROR (err)) {
       print_msg ("multiboot2.c", __LINE__, ERR_GET_FILE_SZ, 'r', err);
@@ -143,7 +144,7 @@ copy_file_buf (EFI_HANDLE parent_image, CHAR16 * file, CHAR8 ** buf,
       return EFI_LOAD_ERROR;
     }
 
-    *buf_len = tmp_buf.FileSize;
+    *buf_len = ((EFI_FILE_INFO *)tmp_buf)->FileSize;
   }
 
   *buf = AllocateZeroPool (*buf_len);
