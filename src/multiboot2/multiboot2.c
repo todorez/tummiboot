@@ -428,14 +428,9 @@ get_efi_mmap () {
   UINTN desc_size;
   UINT32 desc_ver;
 
+  /* Get mmap size only. BUFFER TOO SMALL expected here */
   err = uefi_call_wrapper (BS->GetMemoryMap, 5,
 			   &mmap_size, NULL, NULL, &desc_size, NULL);
-
-  /* Get mmap size only. BUFFER TOO SMALL expected here */
-  if (err != EFI_BUFFER_TOO_SMALL) {
-    print_msg ("multiboot2.c", __LINE__, ERR_EFI_MAP_SZ, 'r', err);
-    return EFI_LOAD_ERROR;
-  }
 
   mmap = (EFI_MEMORY_DESCRIPTOR *) AllocateZeroPool (mmap_size);
   if (!mmap)
