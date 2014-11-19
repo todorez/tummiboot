@@ -1,5 +1,6 @@
 #include <efi.h>
 #include <efilib.h>
+#include <stdarg.h>
 #include "acpi.h"
 #include "multiboot2_util.h"
 
