@@ -106,9 +106,11 @@ efi_cflags = \
 	$(EFI_CFLAGS) \
 	-Wall \
 	-Wextra \
+	-nostdinc \
 	-ggdb -O0 \
 	-fpic \
 	-fshort-wchar \
+	-nostdinc \
 	-ffreestanding \
 	-fno-strict-aliasing \
 	-fno-stack-protector \
