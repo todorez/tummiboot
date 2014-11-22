@@ -1,5 +1,13 @@
 #include <efi.h>
 #include <efilib.h>
+#ifdef __GNUC__
+#define __BACKUP_GNUC__ __GNUC__
+#undef __GNUC__
+#include <efistdarg.h>
+#define __GNUC__ __BACKUP_GNUC__
+#else
+#include <efistdarg.h>
+#endif
 #include "acpi.h"
 #include "multiboot2_util.h"
 
