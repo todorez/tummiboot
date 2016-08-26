@@ -4,6 +4,10 @@
 #include "multiboot2_util.h"
 
 static efi_mmap_t efi_mmap ;
+static INTN e820_map_overflow = 0;
+static UINT8 e820_count = 0;
+UINT8  g_e820_mmap[2560] ;
+
 
 
 EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UINTN *buf_len ){
@@ -18,21 +22,21 @@ EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UIN
 			parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
 
 	if (EFI_ERROR(err)) {
-		Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
+		Print(L"multiboot2.c : %d Error getting a LoadedImageProtocol handle: %r ", __LINE__, err);
         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
         return err;
 	}
 
 	root_dir = LibOpenRoot(loaded_image->DeviceHandle);
 	if (!root_dir) {
-		Print(L"Unable to open root directory: %r ", err);
+		Print(L"multiboot2.c : %d Unable to open root directory: %r ", __LINE__, err);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
         return EFI_LOAD_ERROR;
 	}
 
 	err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &file_handle, file, EFI_FILE_MODE_READ, 0ULL);
 	if (EFI_ERROR(err)){
-		Print(L"Unable to open file: %r ", err);
+		Print(L"multiboot2.c : %d Unable to open file: %r ", __LINE__, err);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return err;
 	}
@@ -44,7 +48,7 @@ EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UIN
 		err  = uefi_call_wrapper(file_handle->GetInfo, 4, file_handle, &GenericFileInfo, &tmp_sz , &tmp_buf);
 
 		if (EFI_ERROR(err)){
-			Print(L"Unable to get file size: err : %d\n", err);
+			Print(L"multiboot2.c : %d Unable to get file size: err : %d\n", __LINE__, err);
 			uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 			uefi_call_wrapper(file_handle->Close, 1, file_handle);
 			return EFI_LOAD_ERROR;
@@ -63,8 +67,8 @@ EFI_STATUS copy_file_buf(EFI_HANDLE parent_image, CHAR16 *file, CHAR8 **buf, UIN
 		uefi_call_wrapper(file_handle->Close, 1, file_handle);
 		return EFI_LOAD_ERROR;
 	} else{
-		Print(L"Read file : %s bytes read : %d\n", file, *buf_len);
-		uefi_call_wrapper(BS->Stall, 1, 2 * 1000 * 1000);
+		Print(L"multiboot2.c : %d Read file : %s bytes read : %d\n", __LINE__, file, *buf_len);
+		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
 	}
 
 	uefi_call_wrapper(file_handle->Close, 1, file_handle);
@@ -91,19 +95,19 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 		if (hdr->magic == MULTIBOOT2_HEADER_MAGIC){
 			if(!(hdr->magic + hdr->architecture+ hdr->header_length + hdr->checksum)){
 				if(hdr->architecture != MULTIBOOT_ARCHITECTURE_I386){
-					Print(L"multiboot2 : Error: Invalid architecture %d.\n", __LINE__);
+					Print(L"multiboot2.c : %d  Error: Invalid architecture.\n", __LINE__);
 					uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 				}
 				break ;
 			}else{
-				Print(L"multiboot2 : Error: Invalid checksum %d.\n", __LINE__);
+				Print(L"multiboot2.c : %d  Error: Invalid checksum.\n", __LINE__);
 				uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 			}
 		}
 	}
 
 	if (hdr == 0){
-		Print(L"multiboot2 : Error: Multiboot2 header not found %d.\n", __LINE__);
+		Print(L"multiboot2.c : %d Error: Multiboot2 header not found.\n", __LINE__);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return EFI_LOAD_ERROR;
 	}
@@ -146,11 +150,11 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 				  case MULTIBOOT_TAG_TYPE_EFI_BS:
 				  break;
 
-				  default:
-            Print(L"Unsupported information tag: 0x%x",
-				      req_tag->requests[i]);
-				    uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-				    return EFI_LOAD_ERROR;
+          default:
+            Print(L"multiboot2.c : %d Unsupported information tag: 0x%x",
+            __LINE__, req_tag->requests[i]);
+            uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+            return EFI_LOAD_ERROR;
 				}
 				break;
 			}
@@ -188,7 +192,7 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 
 			default:
         if (! (tag->flags & MULTIBOOT_HEADER_TAG_OPTIONAL)){
-          Print(L"Unsupported tag: 0x%x",tag->type);
+          Print(L"multiboot2.c : %d Unsupported tag: 0x%x",__LINE__, tag->type);
           uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
           return EFI_LOAD_ERROR;
         }
@@ -197,17 +201,16 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 	}
 
 	if (addr_tag && !has_entry_addr_tag){
-		Print(L"ERROR: OS entry address not found!\n");
+		Print(L"multiboot2.c : %d ERROR: OS entry address not found!\n", __LINE__);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return EFI_LOAD_ERROR;
 	}
 
 	if (addr_tag){
-		Print(L"TODO - parse address tag. Feature not implemented yet.\n");
+		Print(L"multiboot2.c : %d TODO - parse address tag. Feature not implemented yet.\n", __LINE__);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 	}else{
-		Print(L"%s : %d: Loading as ELF binary \n", __FILE__, __LINE__);
-		uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
+		Print(L"multiboot2.c : %d Loading as ELF binary \n", __LINE__);
 		return EFI_LOAD_ELF ;
 	}
 
@@ -215,6 +218,157 @@ EFI_STATUS parse_header(CHAR8 *buf, UINTN len){
 
 }
 
+/* Convert EFI memory map to E820 map for the operating system
+ * This code is based on a Linux kernel patch submitted by Edgar Hucek
+ */
+static void add_memory_region (e820_entry_t *e820_map,
+			       int *e820_count,
+			       unsigned long long start,
+			       unsigned long size,
+			       unsigned int type)
+{
+	int x = *e820_count;
+	static unsigned long long estart = 0ULL;
+	static unsigned long esize = 0L;
+	static unsigned int etype = -1;
+	static int merge = 0;
+
+	if (x == 0)
+		Print((L"multiboot2.c : %d : %3s %4s %16s/%12s/%s\n",
+			__LINE__, L"idx", L" ", L"start", L"size", L"type"));
+
+	/* merge adjacent regions of same type */
+	if ((x > 0) && e820_map[x-1].start + e820_map[x-1].size == start
+	    && e820_map[x-1].type == type) {
+		e820_map[x-1].size += size;
+		estart = e820_map[x-1].start;
+		esize  = e820_map[x-1].size;
+		etype  = e820_map[x-1].type;
+		merge++;
+		return;
+	}
+	/* fill up to E820_MAX */
+	if ( x < E820_MAX_ENTRIES ) {
+		e820_map[x].start = start;
+		e820_map[x].size = size;
+		e820_map[x].type = type;
+		(*e820_count)++;
+		if (merge)
+			Print((L"multiboot2.c : %d  %3d ==>  %016llx/%012lx/%d (%d)\n",
+				__LINE__, x-1, estart, esize, etype, merge));
+		merge=0;
+		Print((L"multiboot2.c : %d %3d add  %016llx/%012lx/%d\n",
+			__LINE__, x, start, size, type));
+		return;
+	}
+	/* different type means another region didn't fit */
+	/* or same type, but there's a hole */
+	if (etype != type || (estart + esize) != start) {
+		if (merge)
+			Print((L"multiboot2.c : %d %3d ===> %016llx/%012lx/%d (%d)\n",
+			__LINE__, e820_map_overflow, estart, esize, etype, merge));
+		merge = 0;
+		estart = start;
+		esize = size;
+		etype = type;
+		e820_map_overflow++;
+		Print((L"multiboot2.c : %d %3d OVER %016llx/%012lx/%d\n",
+			 __LINE__, e820_map_overflow, start, size, type));
+		return;
+	}
+	/* same type and no hole, merge it */
+	estart += esize;
+	esize += size;
+	merge++;
+}
+
+void convert_mmap_efi_e820(efi_mmap_t *efi_mmap)
+{
+	int efi_count, i;
+	UINT64 start, end, size;
+	EFI_MEMORY_DESCRIPTOR	*desc, *p;
+	e820_entry_t *e820_map;
+
+	e820_count = 0 ;
+	p = efi_mmap->mmap;
+	efi_count = efi_mmap->mmap_size/efi_mmap->desc_size;
+	e820_map = (e820_entry_t *)g_e820_mmap;
+
+	for (i = 0; i < efi_count; i++)
+	{
+		desc = p;
+		switch (desc->Type) {
+		case EfiACPIReclaimMemory:
+			add_memory_region(e820_map, &e820_count,
+					desc->PhysicalStart,
+					desc->NumberOfPages << EFI_PAGE_SHIFT,
+					  E820_ACPI);
+			break;
+		case EfiRuntimeServicesCode:
+			add_memory_region(e820_map, &e820_count,
+					desc->PhysicalStart,
+					desc->NumberOfPages << EFI_PAGE_SHIFT,
+					  E820_EXEC_CODE);
+			break;
+		case EfiRuntimeServicesData:
+		case EfiReservedMemoryType:
+		case EfiMemoryMappedIO:
+		case EfiMemoryMappedIOPortSpace:
+		case EfiUnusableMemory:
+		case EfiPalCode:
+			add_memory_region(e820_map, &e820_count,
+					desc->PhysicalStart,
+					desc->NumberOfPages << EFI_PAGE_SHIFT,
+					  E820_RESERVED);
+			break;
+		case EfiLoaderCode:
+		case EfiLoaderData:
+		case EfiBootServicesCode:
+		case EfiBootServicesData:
+		case EfiConventionalMemory:
+			start = desc->PhysicalStart;
+			size = desc->NumberOfPages << EFI_PAGE_SHIFT;
+			end = start + size;
+			/* Fix up for BIOS that claims RAM in 640K-1MB region */
+			if (start < 0x100000ULL && end > 0xA0000ULL) {
+				if (start < 0xA0000ULL) {
+					/* start < 640K
+					 * set memory map from start to 640K
+					 */
+					add_memory_region(e820_map,
+							  &e820_count,
+							  start,
+							  0xA0000ULL-start,
+							  E820_RAM);
+				}
+				if (end <= 0x100000ULL)
+					continue;
+				/* end > 1MB
+				 * set memory map avoiding 640K to 1MB hole
+				 */
+				start = 0x100000ULL;
+				size = end - start;
+			}
+			add_memory_region(e820_map, &e820_count,
+					  start, size, E820_RAM);
+			break;
+		case EfiACPIMemoryNVS:
+			add_memory_region(e820_map, &e820_count,
+					desc->PhysicalStart,
+					desc->NumberOfPages << EFI_PAGE_SHIFT,
+					  E820_NVS);
+			break;
+		default:
+			Print(L"multiboot2.c : %d hit default!?", __LINE__);
+			add_memory_region(e820_map, &e820_count,
+					desc->PhysicalStart,
+					desc->NumberOfPages << EFI_PAGE_SHIFT,
+					  E820_RESERVED);
+			break;
+		}
+		p = NextMemoryDescriptor(p, efi_mmap->desc_size);
+	}
+}
 
 EFI_STATUS get_efi_mmap(){
 
@@ -230,20 +384,20 @@ EFI_STATUS get_efi_mmap(){
 
 	/* Get mmap size only. BUFFER TOO SMALL expected here */
 	if (err != EFI_BUFFER_TOO_SMALL) {
-		Print(L"multiboot2:%d ERROR: %d Unable to get efi memory map size\n", __LINE__, err);
+		Print(L"multiboot2.c : %d ERROR: %d Unable to get efi memory map size\n", __LINE__, err);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return EFI_LOAD_ERROR;
 	}
 
 	mmap = (EFI_MEMORY_DESCRIPTOR *) AllocateZeroPool(mmap_size) ;
 	if (!mmap)
-		Print(L"multiboot2:%d ERROR:%d Unable to allocate efi mmap memory\n", __LINE__, err);
+		Print(L"multiboot2.c : %d ERROR:%d Unable to allocate efi mmap memory\n", __LINE__, err);
 
 	/* get the real memory map */
 	err = uefi_call_wrapper(BS->GetMemoryMap,5,
 				&mmap_size, mmap, &mapkey, &desc_size, &desc_ver);
 	if (EFI_ERROR(err)) {
-		Print(L"multiboot2:%d ERROR:%d Unable to get efi memory map\n", __LINE__, err);
+		Print(L"multiboot2.c : %d ERROR:%d Unable to get efi memory map\n", __LINE__, err);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return EFI_LOAD_ERROR;
 	}
@@ -254,8 +408,11 @@ EFI_STATUS get_efi_mmap(){
 	efi_mmap.desc_size = desc_size ;
 	efi_mmap.desc_ver = desc_ver ;
 
-	Print(L"cmd line : mmap_size : %d desc_size : %d.\n", mmap_size, desc_size );
-			uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+	Print(L"multiboot2.c : %d efi_mmap_size : %d desc_size : %d.\n", __LINE__, mmap_size, desc_size );
+	uefi_call_wrapper(BS->Stall, 1, 1 * 1000 * 1000);
+
+	/* convert EFI mmap to E820 mmap */
+	convert_mmap_efi_e820(&efi_mmap) ;
 
 	return EFI_SUCCESS ;
 
@@ -268,7 +425,7 @@ static UINT32 get_mbi2_size (const ConfigEntry *entry)
 
 	err = get_efi_mmap() ;
 	if (EFI_ERROR(err)) {
-		Print(L"multiboot2:%d ERROR:%d Unable to get efi memory map\n", __LINE__, err);
+		Print(L"multiboot2.c : %d ERROR:%d Unable to get efi memory map\n", __LINE__, err);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return EFI_LOAD_ERROR;
 	}
@@ -304,7 +461,10 @@ static UINT32 get_mbi2_size (const ConfigEntry *entry)
 
 	/* TODO - ELF symbols */
 
-	/* TODO - mmap */
+	/* mmap */
+	+ ALIGN_UP ((sizeof (struct multiboot_tag_mmap)
+		+ e820_count * sizeof (struct multiboot_mmap_entry)),
+		MULTIBOOT_TAG_ALIGN)
 
 	/* framebuffer info */
 	+ ALIGN_UP (sizeof (struct multiboot_tag_framebuffer),
@@ -333,10 +493,52 @@ static UINT32 get_mbi2_size (const ConfigEntry *entry)
 	/* END TAG */
 	+ sizeof (struct multiboot_tag);
 
-	Print(L"cmd line : cmd %s num %d.\n", entry->options,
-			ALIGN_UP (StrLen(entry->options) * sizeof(CHAR16), MULTIBOOT_TAG_ALIGN));
-			uefi_call_wrapper(BS->Stall, 1, 5 * 1000 * 1000);
   return mbi2_size ;
+}
+
+multiboot_uint32_t get_e820_lower_mem(){
+	int i ;
+	e820_entry_t *e820_map = (e820_entry_t *)g_e820_mmap;
+	multiboot_uint32_t lower_mem ;
+
+	for(i=0; i < e820_count; i++){
+
+		if (e820_map[i].type == E820_RAM){
+			if (e820_map[i].start == 0){
+				lower_mem = e820_map[i].size + e820_map[i].start;
+
+				if (lower_mem > 0x100000)
+					lower_mem =  0x100000;
+
+				return lower_mem ;
+			}
+		}
+	}
+
+	return 0 ;
+
+}
+
+multiboot_uint32_t get_e820_upper_mem(){
+
+	int i ;
+	e820_entry_t *e820_map = (e820_entry_t *)g_e820_mmap;
+	multiboot_uint32_t upper_mem ;
+
+	for(i=0; i < e820_count; i++){
+
+		if (e820_map[i].type == E820_RAM){
+			if (e820_map[i].start <= 0x100000 && e820_map[i].start +
+					e820_map[i].size > 0x100000){
+				upper_mem = e820_map[i].start +
+						e820_map[i].size - 0x100000;
+				return upper_mem ;
+			}
+		}
+	}
+
+	return 0 ;
+
 }
 
 EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
@@ -344,17 +546,17 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 	EFI_STATUS err ;
 	VOID *mbi2_buf = NULL, *tmp = NULL ;
 	CHAR8 *kernel_buf, *initrd_buf = NULL ;
-	UINTN kern_sz = 0, initrd_sz = 0 ;
+	UINTN kern_sz = 0, initrd_sz = 0, i ;
 
 	mbi2_buf = AllocateZeroPool(get_mbi2_size(entry)) ;
 	if(!mbi2_buf){
-		Print(L"cmd line : Error populating mbi2 %d.\n", __LINE__);
+		Print(L"multiboot2.c : %d : Error populating mbi2.\n", __LINE__);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 
 		return EFI_LOAD_ERROR ;
 	}
 	else{
-		Print(L"multiboot2.c : Populating mbi2 %d.\n", __LINE__);
+		Print(L"multiboot2.c : %d Populating mbi2.\n", __LINE__);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 
 		tmp = mbi2_buf ;
@@ -386,7 +588,7 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 		/* modules - kernel + initrd */
 		err = copy_file_buf(parent_image, entry->loader, &kernel_buf, &kern_sz) ;
 		if (EFI_ERROR(err) || !kernel_buf || !kern_sz){
-			Print(L"cmd line : Error loading kernel %d.\n", __LINE__);
+			Print(L"multiboot2.c : %d Error loading kernel %d.\n", __LINE__);
 			uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 			return EFI_LOAD_ERROR ;
 		}
@@ -396,12 +598,12 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 		kernel_mod_tag->size = sizeof (struct multiboot_tag_module) + sizeof(NULL);
 		kernel_mod_tag->mod_start = kernel_buf;
 		kernel_mod_tag->mod_end = kernel_mod_tag->mod_start + kern_sz;
-		kernel_mod_tag->cmdline[0] = "";
+		kernel_mod_tag->cmdline[0] = NULL;
 		tmp += ALIGN_UP (kernel_mod_tag->size, MULTIBOOT_TAG_ALIGN) ;
 
 		err = copy_file_buf(parent_image, entry->initrd, &initrd_buf, &initrd_sz) ;
 		if (EFI_ERROR(err) || !initrd_buf || !initrd_sz){
-			Print(L"cmd line : Error loading initrd %d.\n", __LINE__);
+			Print(L"multiboot2.c : %d Error loading initrd %d.\n", __LINE__);
 			uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 			return EFI_LOAD_ERROR ;
 		}
@@ -419,13 +621,40 @@ EFI_STATUS populate_mbi2(EFI_HANDLE parent_image, const ConfigEntry *entry){
 		      = (struct multiboot_tag_basic_meminfo *) tmp;
 		basic_meminfo_tag->type = MULTIBOOT_TAG_TYPE_BASIC_MEMINFO;
 		basic_meminfo_tag->size = sizeof (struct multiboot_tag_basic_meminfo);
+		basic_meminfo_tag->mem_lower = get_e820_lower_mem() /1024;
+		basic_meminfo_tag->mem_upper = get_e820_upper_mem() / 1024 ;
 		tmp += ALIGN_UP (basic_meminfo_tag->size, MULTIBOOT_TAG_ALIGN) ;
+
+		Print(L"multiboot2.c : %d mem_lower : %d mem_upper : %d\n", __LINE__,
+				basic_meminfo_tag->mem_lower, basic_meminfo_tag->mem_upper );
 
 		/* boot device - BIOS */
 
 		/* TODO - ELF symbols */
 
-		/* TODO - mmap */
+		/* mmap */
+		struct multiboot_tag_mmap *e820_mmap_tag = (struct multiboot_tag_mmap *) tmp;
+		struct multiboot_mmap_entry *mmap_entry = e820_mmap_tag->entries;
+		e820_mmap_tag->type = MULTIBOOT_TAG_TYPE_MMAP;
+		e820_mmap_tag->size = sizeof (struct multiboot_tag_mmap)
+		    + sizeof (struct multiboot_mmap_entry) * e820_count;
+		e820_mmap_tag->entry_size = sizeof (struct multiboot_mmap_entry);
+		e820_mmap_tag->entry_version = 0;
+
+		e820_entry_t *e820_map = (e820_entry_t *)g_e820_mmap;
+
+		Print(L"E820 memory map \n");
+		for(i=0; i < e820_count; i++){
+			mmap_entry[i].addr = e820_map[i].start;
+			mmap_entry[i].len = e820_map[i].size;
+			mmap_entry[i].type = e820_map[i].type;
+
+			Print(L"addr : %x - len : %x - type : %d\n", mmap_entry[i].addr, mmap_entry[i].len, mmap_entry[i].type );
+		}
+		uefi_call_wrapper(BS->Stall, 1, 300 * 1000 * 1000);
+
+		tmp += ALIGN_UP (e820_mmap_tag->size, MULTIBOOT_TAG_ALIGN);
+
 
 		/* TODO - framebuffer info */
 
