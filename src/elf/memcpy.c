@@ -71,14 +71,14 @@ void *memcpy(void *dst0, const void *src0, unsigned long length)
 		/*
 		 * Copy forward.
 		 */
-		t = (int)src;	/* only need low bits */
+		t = (long)src;
 
-		if ((t | (int)dst) & wmask) {
+		if ((t | (long)dst) & wmask) {
 			/*
 			 * Try to align operands.  This cannot be done
 			 * unless the low bits match.
 			 */
-			if ((t ^ (int)dst) & wmask || length < wsize) {
+			if ((t ^ (long)dst) & wmask || length < wsize) {
 				t = length;
 			} else {
 				t = wsize - (t & wmask);
@@ -103,10 +103,10 @@ void *memcpy(void *dst0, const void *src0, unsigned long length)
 		 */
 		src += length;
 		dst += length;
-		t = (int)src;
+		t = (long)src;
 
-		if ((t | (int)dst) & wmask) {
-			if ((t ^ (int)dst) & wmask || length <= wsize) {
+		if ((t | (long)dst) & wmask) {
+			if ((t ^ (long)dst) & wmask || length <= wsize) {
 				t = length;
 			} else {
 				t &= wmask;
@@ -123,4 +123,21 @@ void *memcpy(void *dst0, const void *src0, unsigned long length)
 	}
 done:
 	return (dst0);
+}
+
+int memcmp (const void *s1, const void *s2, unsigned n)
+{
+  const unsigned char *t1 = s1;
+  const unsigned char *t2 = s2;
+
+  while (n--)
+    {
+      if (*t1 != *t2)
+	return (int) *t1 - (int) *t2;
+
+      t1++;
+      t2++;
+    }
+
+  return 0;
 }
